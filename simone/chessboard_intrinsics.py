@@ -32,7 +32,7 @@ for file in images:
     imagePoints.append(corners)
 
 ret, K, dist, rvecs, tvecs = cv2.calibrateCamera(objectPoints, imagePoints, gray.shape[::-1],None,None)
-np.savetxt('./data/intrisics.txt', K)
+np.savetxt('./data/intrinsics.txt', K)
 np.savetxt('./data/distortion.txt', dist)
 
 print(K)
