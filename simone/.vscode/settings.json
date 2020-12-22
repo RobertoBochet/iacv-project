@@ -1,0 +1,6 @@
+{
+    "python.autoComplete.extraPaths": [
+    "C:\\Users\\Simone\\AppData\\Local\\Programs\\Python\\Python39\\Lib\\site-packages\\cv2\\python-3.9"
+    ],
+    "python.linting.pylintArgs": ["--generate-members"]
+}
