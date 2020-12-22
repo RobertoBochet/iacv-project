@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
 
+camera_index = 2
+
 criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
 v = cv2.VideoCapture()
@@ -23,7 +25,7 @@ while True:
 
     key = cv2.waitKey(16)
     if key == 32:                       # press space to take a picture
-        cv2.imwrite("./chessboard/"+str(i)+".jpg", img_orig)
+        cv2.imwrite('./chessboard/camera' + str(camera_index) + '/' + str(i) + '.jpg', img_orig)
         i = i+1
     elif key == 120:                    # x to quit
         quit()

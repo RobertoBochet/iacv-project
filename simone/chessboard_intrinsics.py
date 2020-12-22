@@ -2,6 +2,8 @@ import cv2 as cv2
 import numpy as np
 import glob
 
+camera_index = 2
+
 criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
 objectPoints = []
@@ -11,7 +13,7 @@ for row in range(6):
     for col in range(9):
         points_3d[9*row+col] = (row,col,0)       # so che è C ma ci mettevo di meno a scriverlo che a leggere i docs di numpy
 
-images = glob.glob('./chessboard/*.jpg')
+images = glob.glob('./chessboard/camera' + str(camera_index) + '/*.jpg')
 
 for file in images:
 
@@ -32,7 +34,7 @@ for file in images:
     imagePoints.append(corners)
 
 ret, K, dist, rvecs, tvecs = cv2.calibrateCamera(objectPoints, imagePoints, gray.shape[::-1],None,None)
-np.savetxt('./data/intrinsics.txt', K)
-np.savetxt('./data/distortion.txt', dist)
+np.savetxt('./data/camera' + str(camera_index) + '/intrinsics.txt', K)
+np.savetxt('./data/camera' + str(camera_index) + '/distortion.txt', dist)
 
 print(K)
