@@ -1,16 +1,18 @@
 import cv2
 import numpy as np
 
+camera_index = 2
+
 dictionary = cv2.aruco.custom_dictionary(5, 3)
 parameters = cv2.aruco.DetectorParameters_create()
-K = np.fromfile("./data/intrinsics.txt")
-dist = np.fromfile("./data/distortion.txt")
+K = np.loadtxt('./data/camera'+ str(camera_index) + '/intrinsics.txt')
+dist = np.loadtxt('./data/camera'+ str(camera_index) + '/distortion.txt')
 
 v = cv2.VideoCapture()
 v.open(0)
 v.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)        # 720p
 
-border = int((1280 - 720*4/3.0) / 2)         # 16:9 -> 4:3
+# border = int((1280 - 720*4/3.0) / 2)         # 16:9 -> 4:3
 
 while True:
     _, img_orig = v.read()
@@ -19,6 +21,6 @@ while True:
     corners, ids, rejected = cv2.aruco.detectMarkers(img, dictionary, parameters=parameters, cameraMatrix=K, distCoeff=dist)
     print(ids)
     img = cv2.aruco.drawDetectedMarkers(img, corners, ids)
-
+    
     cv2.imshow("pencil", img)
     cv2.waitKey(1)
