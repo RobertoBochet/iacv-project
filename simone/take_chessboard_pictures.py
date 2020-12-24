@@ -6,7 +6,7 @@ camera_index = 2
 criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
 v = cv2.VideoCapture()
-v.open(0)
+v.open(camera_index-1, cv2.CAP_DSHOW)
 v.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)   # 720p
 
 i=0
@@ -16,7 +16,7 @@ while True:
     chessboard_found, corners = cv2.findChessboardCorners(gray, (9,6),None)
     if chessboard_found:
         img_orig = img.copy()
-        cv2.cornerSubPix(gray,corners,(11,11),(-1,-1),criteria)
+        corners = cv2.cornerSubPix(gray,corners,(11,11),(-1,-1),criteria)
         cv2.drawChessboardCorners(img, (9,6), corners, chessboard_found)
     else:
         img_orig = img
