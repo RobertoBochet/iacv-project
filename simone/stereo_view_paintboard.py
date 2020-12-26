@@ -1,6 +1,9 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import time
+import copy
+from filterpy.kalman import KalmanFilter
 
 """ If the cameras have moved run stereo_calibration.py before this script! """
 
@@ -30,6 +33,32 @@ c2.open('./video/video2.avi')
 # c2.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 # c2.set(cv2.CAP_PROP_AUTOFOCUS, 0)
 # c2.set(cv2.CAP_PROP_FOCUS, 0)
+
+f = KalmanFilter (dim_x=3, dim_z=3)
+# init the filter on the center of the board..
+f.x = np.array([[100.],     # x
+                [62.5],     # y
+                [10.]])      # z
+# ..with a large variance
+f.P = np.array([[1000.,    0.,    0.],
+                [   0., 1000.,    0.],
+                [   0.,    0., 1000.]])
+# the new tip position will be somewhat close to the old one -> no explicit dynamics
+f.F = np.array([[1.,0.,0.],
+                [0.,1.,0.],
+                [0.,0.,1.]])
+f.H = np.array([[1.,0.,0.],
+                [0.,1.,0.],
+                [0.,0.,1.]])
+f.R = 10*np.array([ [1.,0.,0.],
+                    [0.,1.,0.],
+                    [0.,0.,1.]])
+f.Q = np.array([[1.,0.,0.],
+                [0.,1.,0.],
+                [0.,0.,1.]])
+f.test_matrix_dimensions()
+f.predict()
+
 
 """ I had to copy this fucker from github because cv2.triangulatePoints doesn't want to work ffs """
 def triangulate_nviews(P, ip):
@@ -89,19 +118,23 @@ def draw_parametric_lines(img,lines):
 
     return img
 
+def millis():
+    return int(time.time() * 1000.0)
+
 
 img1, img2 = stereo_read(c1, c2)
 
 chessboard_found1, corners1 = cv2.findChessboardCorners(img1, (9,6),None)
 chessboard_found2, corners2 = cv2.findChessboardCorners(img2, (9,6),None)
 
-object_points = chessboard_points_3d()
-_, _, _, _, _, R, T, E, F = cv2.stereoCalibrate([object_points], [corners1], [corners2], K1, dist1, K2, dist2, None, flags=cv2.CALIB_FIX_INTRINSIC)
-print(np.linalg.norm(T))
+# object_points = chessboard_points_3d()
+# _, _, _, _, _, R, T, E, F = cv2.stereoCalibrate([object_points], [corners1], [corners2], K1, dist1, K2, dist2, None, flags=cv2.CALIB_FIX_INTRINSIC)
+# print(np.linalg.norm(T))
 cv2.waitKey(0)
 
 epipolar_loss = []
 paintboard = np.zeros((125, 200, 1), dtype='uint8') # each pixel is 1 mm in the real world
+paintboard_cursor = copy.deepcopy(paintboard)
 
 cv2.namedWindow('paintboard', cv2.WINDOW_KEEPRATIO | cv2.WINDOW_NORMAL)
 
@@ -111,6 +144,7 @@ old_col = -1
 previous_frame_ok = False
 
 while True:
+    timestamp = millis()
 
     img1, img2 = stereo_read(c1, c2)
     img1, img2 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY), cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
@@ -156,6 +190,13 @@ while True:
             # tip = center + 135*y_dir
             tip = tip.reshape(3,1)
             center = center.reshape(3,1)
+
+            """ KF filtering """
+            f.update(tip)
+            f.predict()
+            tip = f.x
+
+            """ project back to image plane to visualize the tracking """
             image_center1 = K1 @ ((R1 @ center) + t1)
             image_center1 = image_center1[0:2]/image_center1[2]
             image_center2 = K2 @ ((R2 @ center) + t2)
@@ -168,26 +209,36 @@ while True:
 
             row = 125 - int(tip[0])
             col = 200 - int(tip[1])
-            if tip[2] <= 5 and row >= 0 and col >= 0 and row < 125 and col < 200:
-                if old_row != -1 and old_col != -1:
-                    cv2.line(paintboard, (old_col, old_row), (col, row), (255))
-                else:
-                    paintboard[row, col] = 255
-                old_row = row
-                old_col = col
+            print(tip[2])
+            if row >= 0 and col >= 0 and row < 125 and col < 200:   # if inside the chessboard area
+                if tip[2] <= 5:     # touching
+                    if old_row != -1 and old_col != -1:
+                        cv2.line(paintboard, (old_col, old_row), (col, row), (255))
+                    else:
+                        paintboard[row, col] = 255
+                    old_row = row
+                    old_col = col
+                else:               # not touching
+                    old_row = -1
+                    old_col = -1
+                
+                paintboard_cursor = copy.deepcopy(paintboard)
+                paintboard_cursor[row, col] = 100
             else:
                 old_row = -1
                 old_col = -1
-            
         else:
             old_row = -1
             old_col = -1
-
     else:
         old_row = -1
         old_col = -1
 
-    cv2.imshow('paintboard', paintboard)
+    # print(millis() - timestamp)
+
     cv2.imshow('img2', img2)
     cv2.imshow('img1', img1)
-    cv2.waitKey(1)
+    cv2.imshow('paintboard', paintboard_cursor)
+    key = cv2.waitKey(1)
+    if key == 32:
+        paintboard = np.zeros((125, 200, 1), dtype='uint8')
