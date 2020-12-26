@@ -1,6 +1,5 @@
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
 import time
 
 chessboard_square_size = 25 # mm
@@ -82,4 +81,4 @@ def extrinsics_calibration(camera_index, video_path):
     
 
 R1, t1 = extrinsics_calibration(1, 0)
-R2, t2 = extrinsics_calibration(2, "http://192.168.1.156:8080/video")
+R2, t2 = extrinsics_calibration(2, 1)
