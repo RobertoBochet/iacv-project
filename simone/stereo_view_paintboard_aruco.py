@@ -24,21 +24,21 @@ t2 = t2.reshape(3,1)
 
 c1 = cv2.VideoCapture()
 c2 = cv2.VideoCapture()
-c1.open('./video/video1.avi')
-c2.open('./video/video2.avi')
-# c1.open(0)
-# c1.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)        # 720p
-# c2.open(1)
-# c2.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)        # 720p
-# c2.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-# c2.set(cv2.CAP_PROP_AUTOFOCUS, 0)
-# c2.set(cv2.CAP_PROP_FOCUS, 0)
+# c1.open('./video/video1.avi')
+# c2.open('./video/video2.avi')
+c1.open(0)
+c1.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)        # 720p
+c2.open(1)
+c2.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)        # 720p
+c2.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+c2.set(cv2.CAP_PROP_AUTOFOCUS, 0)
+c2.set(cv2.CAP_PROP_FOCUS, 0)
 
-f = KalmanFilter (dim_x=3, dim_z=3)
+f = KalmanFilter(dim_x=3, dim_z=3)
 # init the filter on the center of the board..
 f.x = np.array([[100.],     # x
                 [62.5],     # y
-                [10.]])      # z
+                [10.]])     # z
 # ..with a large variance
 f.P = np.array([[1000.,    0.,    0.],
                 [   0., 1000.,    0.],
@@ -50,7 +50,7 @@ f.F = np.array([[1.,0.,0.],
 f.H = np.array([[1.,0.,0.],
                 [0.,1.,0.],
                 [0.,0.,1.]])
-f.R = 10*np.array([ [1.,0.,0.],
+f.R = 5*np.array([  [1.,0.,0.],
                     [0.,1.,0.],
                     [0.,0.,1.]])
 f.Q = np.array([[1.,0.,0.],

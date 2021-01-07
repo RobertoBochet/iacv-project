@@ -6,5 +6,7 @@
         "--generate-members"
     ],
     "python.linting.pylintEnabled": true,
-    "python.linting.enabled": true
+    "python.linting.enabled": true,
+    "python.linting.mypyEnabled": false,
+    "python.linting.flake8Enabled": false
 }
