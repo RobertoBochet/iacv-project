@@ -12,6 +12,7 @@ from .utilities import Chessboard
 PATH_VIDEO = Path("../simone/video")
 PATH_VIDEO_1 = PATH_VIDEO / "video1.avi"
 PATH_VIDEO_2 = PATH_VIDEO / "video2.avi"
+PATH_VIDEO_AR = PATH_VIDEO / "ar.mp4"
 
 SKIP_FRAMES = 600
 TEST_FRAMES = 1500
@@ -28,7 +29,8 @@ DIST2 = np.loadtxt(PATH_PARAMETERS_2 / "distortion.txt")
 CHESSBOARD_SIZE = (9, 6)
 CHESSBOARD_SQUARE_SIZE = 25
 
-ARUCO_DICT = cv.aruco.custom_dictionary(5, 3)
+ARUCO_PEN_ID = 0
+ARUCO_DICT = cv.aruco.custom_dictionary(100, 3)
 ARUCO_PARAM = cv.aruco.DetectorParameters_create()
 
 if __name__ == "__main__":
@@ -36,13 +38,30 @@ if __name__ == "__main__":
 
     cam1 = Camera(PATH_VIDEO_1.as_posix(), K1, DIST1)
     cam2 = Camera(PATH_VIDEO_2.as_posix(), K2, DIST2)
+    #cam1 = Camera(PATH_VIDEO_AR.as_posix(), K1, DIST1)
 
     stereo_cam = StereoCamera(cam1, cam2)
-
     stereo_cam.calibrate(chessboard)
 
     tr = Tracker(stereo_cam, aruco_dict=ARUCO_DICT, aruco_param=ARUCO_PARAM)
 
-    print(ARUCO_DICT)
-    print(type(ARUCO_DICT))
-    print(K1)
+    while True:
+        stereo_cam.grab()
+
+        img1, img2 = stereo_cam.retrieve()
+
+        c1, c2 = tr.triangulate_marker(ARUCO_PEN_ID, False)
+
+        cv.aruco.drawDetectedMarkers(img1, c1, None);
+        cv.aruco.drawDetectedMarkers(img2, c2, None);
+
+        cv.imshow("main", np.concatenate((img1, img2), axis=1))
+        #cv.imshow("main", img1)
+
+        cv.waitKey(1)
+
+
+
+        #print(stereo_cam.cam1._r.shape)
+        #print(stereo_cam.cam1._r)
+        #print(stereo_cam.cam1._t)

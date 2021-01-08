@@ -7,7 +7,7 @@ class Chessboard:
         self._square_size = square_size
 
     @property
-    def size(self):
+    def size(self) -> tuple[int, int]:
         return self._size
 
     def get_points(self) -> np.array:
