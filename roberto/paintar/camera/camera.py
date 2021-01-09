@@ -1,5 +1,3 @@
-from functools import cached_property, reduce
-
 import cv2.cv2 as cv
 import numpy as np
 
@@ -33,7 +31,7 @@ class Camera(cv.VideoCapture):
     def t(self) -> np.array:
         return self._t
 
-    @cached_property
+    @property
     def p(self) -> np.array:
         assert self._k is not None and self._r is not None and self._t is not None, "camera must be calibrated"
         return self._k @ np.hstack((self._r, self._t))
@@ -41,6 +39,10 @@ class Camera(cv.VideoCapture):
     def shot(self) -> np.array:
         _, img = self.read()
         return img
+
+    def retrieve_undistorted(self, *args, **kwargs):
+        _, img = self.retrieve(*args, **kwargs)
+        return cv.undistort(img, self._k, self._dist)
 
     def calibrate(self):
         raise NotImplemented
@@ -58,19 +60,27 @@ class Camera(cv.VideoCapture):
         if grab:
             self.grab()
 
-        _, img = self.retrieve()
+        img = self.retrieve_undistorted()
 
         img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
         img = cv.equalizeHist(img)
 
         corners, ids, _ = cv.aruco.detectMarkers(img, aruco_dict, parameters=aruco_param,
-                                                   cameraMatrix=self._k,
-                                                   distCoeff=self._dist)
+                                                 cameraMatrix=self._k,
+                                                 # distCoeff=self._dist
+                                                 )
         if ids is None:
             # no aruco detected
             return None
 
         aruco = list(filter(lambda i: i[0] == aruco_id, zip(list(ids), list(corners))))
 
-        #todo fix the filter
-        return aruco
+        if len(aruco) == 0:
+            # no aruco with searched id found
+            return None
+
+        if len(aruco) > 1:
+            # multiple aruco with searched id found
+            return None
+
+        return np.squeeze(aruco[0][1])

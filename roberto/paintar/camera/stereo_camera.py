@@ -1,8 +1,8 @@
 import cv2.cv2 as cv
 import numpy as np
-from . import Camera
 
-from ..utilities import Chessboard
+from . import Camera
+from ..utilities import Chessboard, cart2proj
 
 
 class StereoCamera:
@@ -45,35 +45,75 @@ class StereoCamera:
         #                                                                        None, flags=cv.CALIB_FIX_INTRINSIC)
 
     def shot(self, grab: bool = True) -> tuple[np.array, np.array]:
+        """
+        shortcut for (optionally) grab and retrieve
+        """
         if grab:
             self.grab()
 
         return self.retrieve()
 
     def grab(self) -> None:
+        """
+        puts cams' images simultaneously in their frame buffers
+        """
         self._cam1.grab()
         self._cam2.grab()
 
     def retrieve(self) -> tuple[np.array, np.array]:
+        """
+        retrieves the cams' images from their frame buffers
+        """
         _, img1 = self._cam1.retrieve()
         _, img2 = self._cam2.retrieve()
 
         return img1, img2
 
+    def retrieve_undistorted(self) -> tuple[np.array, np.array]:
+        """
+        retrieves the undistorted cams' images from their frame buffers
+        """
+        return self._cam1.retrieve_undistorted(), self._cam2.retrieve_undistorted()
+
     def triangulate_points(self, x1, x2):
         """
-        Two-view triangulation of points in
-        x1,x2 (nx3 homog. coordinates).
-        Similar to openCV triangulatePoints.
+        given two sets of points from the two cam in P^2 returns the corresponding set of points in P^3
         """
         assert len(x2) == len(x1), "Number of points don't match."
         return np.array([self.triangulate_point(x[0], x[1]) for x in zip(x1, x2)])
 
     def triangulate_point(self, x1, x2):
-        m = np.zeros([3*2, 4+2])
+        """
+        given two points from the two cam in P^2 returns the corresponding point in P^3
+        """
+        m = np.zeros([3 * 2, 4 + 2])
         for i, (x, p) in enumerate([(x1, self._cam1.p), (x2, self._cam2.p)]):
-            m[3*i:3*i+3, :4] = p
-            m[3*i:3*i+3, 4+i] = -x
+            m[3 * i:3 * i + 3, :4] = p
+            m[3 * i:3 * i + 3, 4 + i] = -x
         v = np.linalg.svd(m)[-1]
         x = v[-1, :4]
         return x / x[3]
+
+    def triangulate_aruco(self, aruco_id: int, grab: bool = True,
+                          aruco_dict: cv.aruco_Dictionary = None,
+                          aruco_param: cv.aruco_DetectorParameters = None) -> np.array:
+        """
+        searches a specific aruco in the two views and returns the 4 corners in P^3
+        """
+        if grab:
+            self.grab()
+
+        ar1 = self._cam1.find_aruco(aruco_id, grab=False,
+                                    aruco_dict=aruco_dict, aruco_param=aruco_param)
+        ar2 = self._cam2.find_aruco(aruco_id, grab=False,
+                                    aruco_dict=aruco_dict, aruco_param=aruco_param)
+
+        if ar1 is None or ar2 is None:
+            # aruco is not found in both the views
+            return None
+
+        # moves aruco into P^2 space
+        ar1 = cart2proj(ar1)
+        ar2 = cart2proj(ar2)
+
+        return self.triangulate_points(ar1, ar2)

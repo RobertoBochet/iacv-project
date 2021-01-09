@@ -48,20 +48,36 @@ if __name__ == "__main__":
     while True:
         stereo_cam.grab()
 
-        img1, img2 = stereo_cam.retrieve()
+        img1, img2 = stereo_cam.retrieve_undistorted()
 
-        c1, c2 = tr.triangulate_marker(ARUCO_PEN_ID, False)
+        #c1, c2 = tr.triangulate_marker(ARUCO_PEN_ID, False)
 
-        cv.aruco.drawDetectedMarkers(img1, c1, None);
-        cv.aruco.drawDetectedMarkers(img2, c2, None);
+        #cv.aruco.drawDetectedMarkers(img1, c1, None)
+        #cv.aruco.drawDetectedMarkers(img2, c2, None)
 
         cv.imshow("main", np.concatenate((img1, img2), axis=1))
         #cv.imshow("main", img1)
 
-        cv.waitKey(1)
+        cv.waitKey(1000)
 
+        ar = stereo_cam.triangulate_aruco(ARUCO_PEN_ID, grab=False, aruco_dict=ARUCO_DICT, aruco_param=ARUCO_PARAM)
+
+        print(ar)
 
 
         #print(stereo_cam.cam1._r.shape)
         #print(stereo_cam.cam1._r)
         #print(stereo_cam.cam1._t)
+
+        # if the window is closed, breaks the loop
+        if cv.getWindowProperty('main', cv.WND_PROP_VISIBLE) < 1:
+            break
+
+            # stereo_cam.grab()
+    #
+    # img1, img2 = stereo_cam.retrieve()
+    #
+    # a=stereo_cam.cam1.find_aruco(ARUCO_PEN_ID, grab=False,
+    #                                            aruco_dict=ARUCO_DICT, aruco_param=ARUCO_PARAM)
+    #
+    # print(a)
