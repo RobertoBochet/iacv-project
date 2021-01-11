@@ -46,12 +46,14 @@ class StereoCamera:
 
         return self.retrieve()
 
-    def grab(self) -> None:
+    def grab(self) -> bool:
         """
         puts cams' images simultaneously in their frame buffers
         """
-        self._cam1.grab()
-        self._cam2.grab()
+        ret1 = self._cam1.grab()
+        ret2 = self._cam2.grab()
+
+        return ret1 and ret2
 
     def retrieve(self) -> tuple[np.array, np.array]:
         """
