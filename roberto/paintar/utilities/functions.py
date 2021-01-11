@@ -54,14 +54,17 @@ def forge_projective_matrix(k: np.array, r: np.array = None, t: np.array = None,
     """
     forges a projective matrix given camera matrix K, and geometrical transformation (R,T) or A
     """
-    assert a is not None or (r is not None and t is not None), "(R,T) or A must be provided"
+    assert k.shape == (3,3), "k must be square matrix (3x3)"
 
     if a is not None:
         assert a.shape == (4, 4), "shape of A must be (4,4)"
         a = a / a[-1, -1]
         return k @ a[:-1]
 
-    else:
+    elif r is not None and t is not None:
         assert r.shape == (3, 3), "shape of R must be (3,3)"
         assert t.shape == (3,), "shape of T must be 3"
         return k @ np.hstack((r, t[..., np.newaxis]))
+
+    else:
+        return np.hstack((k, np.zeros((3,1))))
