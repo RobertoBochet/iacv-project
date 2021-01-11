@@ -47,12 +47,26 @@ class Camera(cv.VideoCapture):
     def calibrate(self):
         raise NotImplemented
 
-    def calibrate_geometry(self, chessboard: Chessboard) -> None:
-        img = self.shot()
-        _, corners = cv.findChessboardCorners(img, chessboard.size, None)
-        _, r, self._t, _ = cv.solvePnPRansac(chessboard.get_points(), corners, self._k, self._dist)
+    def calibrate_geometry(self, chessboard: Chessboard, grab: bool = True, debug_buffer: np.array = None) -> bool:
+        if grab:
+            self.grab()
+
+        _, img = self.retrieve()
+        ret, corners = cv.findChessboardCorners(img, chessboard.size, None)
+
+        if not ret:
+            return False
+
+        if debug_buffer is not None:
+            debug_buffer.resize(img.shape, refcheck=False)
+            np.copyto(debug_buffer, img, casting="no")
+            cv.drawChessboardCorners(debug_buffer, chessboard.size, corners, True)
+
+        ret, r, self._t, _ = cv.solvePnPRansac(chessboard.get_points(), corners, self._k, self._dist)
 
         self._r, _ = cv.Rodrigues(r)
+
+        return ret
 
     def find_aruco(self, aruco_id: int, grab: bool = True,
                    aruco_dict: cv.aruco_Dictionary = None,

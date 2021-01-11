@@ -25,24 +25,17 @@ class StereoCamera:
     def f(self) -> Camera:
         raise NotImplemented
 
-    def calibrate(self, chessboard: Chessboard = Chessboard()) -> None:
-        self._cam1.calibrate_geometry(chessboard)
-        self._cam2.calibrate_geometry(chessboard)
-        # img1, img2 = self.shot()
-        #
-        # chessboard_points = chessboard.get_points()
-        #
-        # # img1 = cv.cvtColor(img1, cv.COLOR_BGR2GRAY)
-        # # img2 = cv.cvtColor(img2, cv.COLOR_BGR2GRAY)
-        #
-        # _, corners1 = cv.findChessboardCorners(img1, chessboard.size, None)
-        # _, corners2 = cv.findChessboardCorners(img2, chessboard.size, None)
-        #
-        # _, _, _, _, _, self._r, self._t, self._e, self._f = cv.stereoCalibrate([chessboard_points],
-        #                                                                        [corners1], [corners2],
-        #                                                                        self._cam1.k, self._cam1.dist,
-        #                                                                        self._cam2.k, self._cam2.dist,
-        #                                                                        None, flags=cv.CALIB_FIX_INTRINSIC)
+    def calibrate_geometry(self, chessboard: Chessboard = Chessboard(), grab: bool = True) -> bool:
+        """
+        calibrates the geometrical parameters R, T of the cameras
+        """
+        if grab:
+            self.grab()
+
+        ret1 = self._cam1.calibrate_geometry(chessboard, grab=False)
+        ret2 = self._cam2.calibrate_geometry(chessboard, grab=False)
+
+        return ret1 and ret2
 
     def shot(self, grab: bool = True) -> tuple[np.array, np.array]:
         """
@@ -117,3 +110,5 @@ class StereoCamera:
         ar2 = cart2proj(ar2)
 
         return self.triangulate_points(ar1, ar2)
+
+        return cv.triangulatePoints(self._cam1.p, self._cam2.p, ar1[0], ar2[0])
