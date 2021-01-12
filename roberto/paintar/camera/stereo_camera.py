@@ -25,6 +25,10 @@ class StereoCamera:
     def f(self) -> Camera:
         raise NotImplemented
 
+    @property
+    def is_calibrated(self) -> bool:
+        return self._cam1.is_calibrated and self._cam2.is_calibrated
+
     def calibrate_geometry(self, chessboard: Chessboard = Chessboard(), grab: bool = True) -> bool:
         """
         calibrates the geometrical parameters R, T of the cameras

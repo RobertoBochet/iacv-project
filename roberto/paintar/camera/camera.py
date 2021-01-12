@@ -15,6 +15,9 @@ class Camera(cv.VideoCapture):
         self._r = None
         self._t = None
 
+        self._frame_size = np.array([int(self.get(cv.CAP_PROP_FRAME_HEIGHT)),
+                                     int(self.get(cv.CAP_PROP_FRAME_WIDTH))], dtype=int)
+
     @property
     def k(self) -> np.array:
         return self._k
@@ -32,7 +35,7 @@ class Camera(cv.VideoCapture):
         return self._t
 
     @property
-    def a(self) -> np.array:
+    def a(self) -> np.ndarray:
         """
         provides the geometrical transformation A_b^c (i.e. p^c = A_b^c p^b),
         the transformation of the base frame respect of camera frame
@@ -41,7 +44,7 @@ class Camera(cv.VideoCapture):
         return forge_isometry(self._r, self._t)
 
     @property
-    def m_c(self) -> np.array:
+    def m_c(self) -> np.ndarray:
         """
         provides the camera matrix M (i.e. x^c = M X^c),
         the transformation from point in P^3 referred to camera frame to point in P^2 in camera projection
@@ -50,13 +53,25 @@ class Camera(cv.VideoCapture):
         return forge_projective_matrix(self._k)
 
     @property
-    def m(self) -> np.array:
+    def m(self) -> np.ndarray:
         """
         provides the camera matrix M_b^c (i.e. x^c = M_b^c X^b),
         the transformation from point in P^3 referred to base frame to point in P^2 in camera projection
         """
         assert self._k is not None and self._r is not None and self._t is not None, "camera must be calibrated"
         return forge_projective_matrix(self._k, r=self._r, t=self._t)
+
+    @property
+    def is_calibrated(self) -> bool:
+        return self._k is not None and self._t is not None and self._r is not None
+
+    @property
+    def frame_size(self) -> np.ndarray:
+        """
+        returns the frame size
+        """
+        # TODO needs more test
+        return self._frame_size
 
     def shot(self) -> np.array:
         _, img = self.read()
@@ -135,9 +150,10 @@ class Camera(cv.VideoCapture):
         r, t, _ = cv.aruco.estimatePoseSingleMarkers([aruco], marker_size, self._k, self._dist)
 
         if debug_buffer is not None:
-            _, img = self.retrieve()
-            debug_buffer.resize(img.shape, refcheck=False)
-            np.copyto(debug_buffer, img, casting="unsafe")
+            if debug_buffer.size == 1:
+                _, img = self.retrieve()
+                debug_buffer.resize(img.shape, refcheck=False)
+                np.copyto(debug_buffer, img, casting="unsafe")
             cv.aruco.drawAxis(debug_buffer, self._k, self._dist, r, t, 2 * marker_size)
 
         r, _ = cv.Rodrigues(r[0])
