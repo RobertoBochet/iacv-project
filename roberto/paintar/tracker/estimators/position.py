@@ -14,7 +14,7 @@ class Position3DEstimator(fpk.KalmanFilter):
         # the new tip position will be somewhat close to the old one -> no explicit dynamics
         self.F = np.eye(3, dtype=float)
         self.H = np.eye(3, dtype=float)
-        self.R = np.eye(3, dtype=float) * 5
+        self.R = np.eye(3, dtype=float) * 0.5
         self.Q = np.eye(3, dtype=float) * 10
 
         self.reset()
