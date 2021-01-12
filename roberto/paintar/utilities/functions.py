@@ -1,7 +1,9 @@
+from typing import Union
+
 import numpy as np
 
 
-def cart2proj(x) -> np.array:
+def cart2proj(x: np.ndarray) -> np.ndarray:
     """
     converts one or several points from cartesian 2D/3D to projective P^2/P^3
     """
@@ -13,7 +15,7 @@ def cart2proj(x) -> np.array:
         return np.hstack((x, np.ones((x.shape[0], 1))))
 
 
-def proj2cart(x) -> np.array:
+def proj2cart(x: np.ndarray) -> np.ndarray:
     """
     converts one or several points from projective P^2/P^3 to cartesian 2D/3D
     """
@@ -24,7 +26,7 @@ def proj2cart(x) -> np.array:
         return x[:, :-1]
 
 
-def proj_normalization(x) -> np.array:
+def proj_normalization(x: np.ndarray) -> np.ndarray:
     """
     returns the normalized version of a vector or list of vectors in the projective space
     """
@@ -34,7 +36,7 @@ def proj_normalization(x) -> np.array:
         return (x.T / x[:, -1]).T
 
 
-def forge_isometry(r: np.array, t: np.array) -> np.array:
+def forge_isometry(r: np.ndarray, t: np.ndarray) -> np.ndarray:
     """
     forges an isometry from rotation and translation matrices
     """
@@ -52,7 +54,8 @@ def forge_isometry(r: np.array, t: np.array) -> np.array:
     return a
 
 
-def forge_projective_matrix(k: np.array, r: np.array = None, t: np.array = None, a: np.array = None) -> np.array:
+def forge_projective_matrix(k: np.ndarray, r: np.ndarray = None, t: np.ndarray = None,
+                            a: np.ndarray = None) -> np.ndarray:
     """
     forges a projective matrix given camera matrix K, and geometrical transformation (R,T) or A
     """
@@ -70,3 +73,34 @@ def forge_projective_matrix(k: np.array, r: np.array = None, t: np.array = None,
 
     else:
         return np.hstack((k, np.zeros((3, 1))))
+
+
+def crop_around(point: np.ndarray, size: Union[np.ndarray, int], bounds: np.ndarray = None) -> np.ndarray:
+    """
+    given a point in 2D space, and a size of a rectangle or a circle radius
+    returns the limits for a rectangle crop around the point
+    if bounds are provided, them limit the crop
+    """
+    assert point.size == 2, "point must be a 2D point"
+
+    if np.ndim(point) == 2:
+        point = point.reshape(2)
+
+    half_size = size * 0.5 if isinstance(size, np.ndarray) else np.array([size, size])
+
+    limits = np.vstack((point - half_size, point + half_size)).T
+
+    if bounds is not None:
+        if bounds.size == 2:
+            bounds = np.vstack((np.zeros(2), bounds)).T
+
+        if limits[0, 0] < bounds[0, 0]:
+            limits[0, 0] = bounds[0, 0]
+        if limits[1, 0] < bounds[1, 0]:
+            limits[1, 0] = bounds[1, 0]
+        if limits[0, 1] > bounds[0, 1]:
+            limits[0, 1] = bounds[0, 1]
+        if limits[1, 1] > bounds[1, 1]:
+            limits[1, 1] = bounds[1, 1]
+
+    return limits.astype(np.int)
