@@ -41,6 +41,15 @@ class Camera(cv.VideoCapture):
         return forge_isometry(self._r, self._t)
 
     @property
+    def m_c(self) -> np.array:
+        """
+        provides the camera matrix M (i.e. x^c = M X^c),
+        the transformation from point in P^3 referred to camera frame to point in P^2 in camera projection
+        """
+        assert self._k is not None, "camera must be calibrated"
+        return forge_projective_matrix(self._k)
+
+    @property
     def m(self) -> np.array:
         """
         provides the camera matrix M_b^c (i.e. x^c = M_b^c X^b),
