@@ -6,14 +6,14 @@ class Chessboard:
     chessboard model used for the cv.findChessboardCorners function
     """
 
-    def __init__(self, size: tuple[int, int] = (7, 7), square_size: int = 1):
+    def __init__(self, size: tuple[int, int] = (7, 7), square_size: float = 1):
         self._size = size
         self._square_size = square_size
 
     @property
     def size(self) -> tuple[int, int]:
         """
-        it is the length of the cell's side in real world
+        it is the size of the chessboard (columns, rows)
         """
         return self._size
 
