@@ -8,3 +8,5 @@ simone/detetct_pencil_marker.py
 simone/record_video.py
 
 simone/stereo_calibration.py
+
+simone/.vscode/
