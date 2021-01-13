@@ -68,6 +68,18 @@ class Tracker:
 
         return Status.CAMERA_NO_CALIBRATE
 
+    def detect_tip_feature(self, tip_area: np.ndarray) -> np.ndarray, tuple:
+        hsv = cv.cvtColor(tip_area, cv.COLOR_BGR2HSV)
+        mask = cv.inRange(hsv, np.array([0,0,80]), np.array([180,255,255]))
+        mask = cv.cvtColor(mask, cv.COLOR_GRAY2RGB)             # needed by bitwise_or
+        tip_area = cv.bitwise_or(mask,tip_area)                 # replace everthing brighter than V = 80 with pure white
+        tip_area = cv.cvtColor(tip_area,cv.COLOR_BGR2GRAY)      # needed by shi-tomasi detector
+        features = cv.goodFeaturesToTrack(tip_area,3,.2,20)     # top 3 features are returned
+        crop_center = 0.5 * np.array([[self._aruco_tip_crop_size1, self._aruco_tip_crop_size1]])  # center of the crop area is the believed position of the tip
+        features = sorted(features, key = lambda feature: np.linalg.norm(crop_center-feature))    # sort by closeness to the old believed position
+        
+        return features[0].ravel(), [features[i].ravel() for i in range(start=1, stop=len(features))]   # tip, rejected
+
     def loop(self, grab: bool = True):
         if grab:
             self._stereo_cam.grab()
@@ -142,14 +154,15 @@ class Tracker:
             img1, img2 = self._stereo_cam.retrieve()
 
             # creates the crops around the estimate tip positions
-            crop1 = img1[crop1_limits[0, 0]:crop1_limits[0, 1], crop1_limits[1, 0]:crop1_limits[1, 1]]
-            crop2 = img2[crop2_limits[0, 0]:crop2_limits[0, 1], crop2_limits[1, 0]:crop2_limits[1, 1]]
+            crop1 = np.copy(img1[crop1_limits[0, 0]:crop1_limits[0, 1], crop1_limits[1, 0]:crop1_limits[1, 1]])
+            crop2 = np.copy(img2[crop2_limits[0, 0]:crop2_limits[0, 1], crop2_limits[1, 0]:crop2_limits[1, 1]])
 
             if db1 is not None:
                 db1[0:250, 0:250] = cv.resize(crop1, (250, 250))
                 db2[0:250, 0:250] = cv.resize(crop2, (250, 250))
 
-            # TODO find the tip corner
+            tip1, rejected1 = self.detect_tip_feature(crop1)
+            tip2, rejected2 = self.detect_tip_feature(crop2)
 
         elif self.status == Status.CAMERA_NO_CALIBRATE:
             pass
