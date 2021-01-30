@@ -1,4 +1,4 @@
-import cv2.cv2 as cv
+import cv2 as cv
 import numpy as np
 
 from ..utilities import Chessboard, forge_isometry, forge_projective_matrix
@@ -7,13 +7,14 @@ from ..utilities import Chessboard, forge_isometry, forge_projective_matrix
 class Camera(cv.VideoCapture):
     def __init__(self, source: any,
                  k: np.array = None, dist: np.array = None,
+                 r: np.array = None, t: np.array = None,
                  *args, **kwargs):
         super().__init__(source, *args, **kwargs)
 
         self._k = k
         self._dist = dist
-        self._r = None
-        self._t = None
+        self._r = r
+        self._t = t
 
         self._frame_size = np.array([int(self.get(cv.CAP_PROP_FRAME_HEIGHT)),
                                      int(self.get(cv.CAP_PROP_FRAME_WIDTH))], dtype=int)
@@ -80,6 +81,10 @@ class Camera(cv.VideoCapture):
     def retrieve_undistorted(self, *args, **kwargs):
         _, img = self.retrieve(*args, **kwargs)
         return cv.undistort(img, self._k, self._dist)
+
+    def retrieve(self, *args, **kwargs):
+        _, img = super(Camera, self).retrieve(*args, **kwargs)
+        return _, cv.undistort(img, self._k, self._dist)
 
     def calibrate(self):
         raise NotImplemented

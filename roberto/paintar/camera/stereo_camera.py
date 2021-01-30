@@ -1,4 +1,4 @@
-import cv2.cv2 as cv
+import cv2 as cv
 import numpy as np
 
 from . import Camera
@@ -85,11 +85,11 @@ class StereoCamera:
         """
         given two points from the two cam in P^2 returns the corresponding point in P^3
         """
-        m = np.zeros([3 * 2, 4 + 2])
-        for i, (x, p) in enumerate([(x1, self._cam1.p), (x2, self._cam2.p)]):
-            m[3 * i:3 * i + 3, :4] = p
-            m[3 * i:3 * i + 3, 4 + i] = -x
-        v = np.linalg.svd(m)[-1]
+        A = np.zeros([3 * 2, 4 + 2])
+        for i, (x, p) in enumerate([(x1, self._cam1.m), (x2, self._cam2.m)]):
+            A[3 * i:3 * i + 3, :4] = p
+            A[3 * i:3 * i + 3, 4 + i] = -x
+        v = np.linalg.svd(A)[-1]
         x = v[-1, :4]
         return x / x[3]
 
