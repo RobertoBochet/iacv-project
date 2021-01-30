@@ -5,7 +5,11 @@ import numpy as np
 
 
 class Position3DEstimator(fpk.KalmanFilter):
-    def __init__(self, init_x: Union[np.array, float] = 0., init_p: Union[np.array, float] = 1000.):
+    def __init__(self,
+                 init_x: Union[np.array, float] = 0.,
+                 init_p: Union[np.array, float] = 1e3,
+                 r: Union[np.array, float] = 1.,
+                 q: Union[np.array, float] = 1.):
         super().__init__(3, 3)
 
         self._init_x = init_x if isinstance(init_x, np.ndarray) else np.ones((3, 1), dtype=float) * init_x
@@ -14,8 +18,9 @@ class Position3DEstimator(fpk.KalmanFilter):
         # the new tip position will be somewhat close to the old one -> no explicit dynamics
         self.F = np.eye(3, dtype=float)
         self.H = np.eye(3, dtype=float)
-        self.R = np.eye(3, dtype=float) * 0.5
-        self.Q = np.eye(3, dtype=float) * 10
+
+        self.R = r if isinstance(r, np.ndarray) else np.eye(3, dtype=float) * r
+        self.Q = q if isinstance(q, np.ndarray) else np.eye(3, dtype=float) * q
 
         self.reset()
 

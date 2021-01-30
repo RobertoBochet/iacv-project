@@ -58,6 +58,7 @@ if __name__ == "__main__":
     while True:
         t_i = time.time()
 
-        stereo_cam.grab()
+        if not stereo_cam.grab():
+            break
 
         tr.loop(False)
