@@ -9,7 +9,7 @@ from . import utilities as ut
 from .camera import Camera, StereoCamera
 from .tracker import Tracker
 
-PATH_VIDEO = Path("../video")
+PATH_VIDEO = Path("./video")
 PATH_VIDEO_1 = PATH_VIDEO / "video1.avi"
 PATH_VIDEO_2 = PATH_VIDEO / "video2.avi"
 PATH_VIDEO_AR = PATH_VIDEO / "ar.mp4"
@@ -17,7 +17,7 @@ PATH_VIDEO_AR = PATH_VIDEO / "ar.mp4"
 SKIP_FRAMES = 30 * 10 * 0
 TEST_FRAMES = 1500
 
-PATH_PARAMETERS = Path("../data")
+PATH_PARAMETERS = Path("./data")
 PATH_PARAMETERS_1 = PATH_PARAMETERS / "camera1"
 PATH_PARAMETERS_2 = PATH_PARAMETERS / "camera2"
 
