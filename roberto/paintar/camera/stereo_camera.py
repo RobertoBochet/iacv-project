@@ -1,8 +1,10 @@
-import cv2 as cv
+from typing import Union
+
+import cv2.cv2 as cv
 import numpy as np
 
 from . import Camera
-from ..utilities import Chessboard, cart2proj
+from ..utilities import Chessboard, cart2proj, proj2cart
 
 
 class StereoCamera:
@@ -85,19 +87,21 @@ class StereoCamera:
         """
         given two points from the two cam in P^2 returns the corresponding point in P^3
         """
-        A = np.zeros([3 * 2, 4 + 2])
+        m = np.zeros([3 * 2, 4 + 2])
         for i, (x, p) in enumerate([(x1, self._cam1.m), (x2, self._cam2.m)]):
-            A[3 * i:3 * i + 3, :4] = p
-            A[3 * i:3 * i + 3, 4 + i] = -x
-        v = np.linalg.svd(A)[-1]
+            m[3 * i:3 * i + 3, :4] = p
+            m[3 * i:3 * i + 3, 4 + i] = -x
+        v = np.linalg.svd(m)[-1]
         x = v[-1, :4]
         return x / x[3]
 
-    def triangulate_aruco(self, aruco_id: int, grab: bool = True,
+    def triangulate_aruco(self, aruco_id: int, aruco_size: float,
+                          grab: bool = True,
                           aruco_dict: cv.aruco_Dictionary = None,
-                          aruco_param: cv.aruco_DetectorParameters = None) -> np.array:
+                          aruco_param: cv.aruco_DetectorParameters = None) -> Union[np.ndarray, None]:
         """
-        searches a specific aruco in the two views and returns the 4 corners in P^3
+        searches a specific aruco in the two views, triangulates it and
+        returns a transformation matrix for points in the aruco frame
         """
         if grab:
             self.grab()
@@ -115,6 +119,40 @@ class StereoCamera:
         ar1 = cart2proj(ar1)
         ar2 = cart2proj(ar2)
 
-        return self.triangulate_points(ar1, ar2)
+        # triangulates the aruco's points
+        p = self.triangulate_points(ar1, ar2)
+        p = proj2cart(p)
 
-        return cv.triangulatePoints(self._cam1.p, self._cam2.p, ar1[0], ar2[0])
+        # uses Kabsch algorithm
+        # finds centroid of the aruco's points
+        pc = np.sum(p, axis=0) / 4
+
+        # removes the centroid from the points
+        p = p - pc
+
+        # defines the points in the aruco reference frame
+        pr = np.array([[-1, 1, 0], [1, 1, 0], [1, -1, 0], [-1, -1, 0]]) * aruco_size / 2
+
+        # computes H = P^T * Q
+        h = np.transpose(pr) @ p
+
+        # decomposes H
+        u, s, vh = np.linalg.svd(h)
+        v = np.transpose(vh)
+
+        # computes the sign for the reference frame
+        d = 1 if np.linalg.det(v @ np.transpose(u)) > 0 else -1
+
+        # computes the rotation matrix
+        r = np.transpose(vh) @ np.diag([1, 1, d]) @ np.transpose(u)
+
+        # composes the transformation matrix
+        t = np.vstack((
+            np.hstack((
+                r,
+                np.transpose(pc[np.newaxis])
+            )),
+            np.array([0, 0, 0, 1])
+        ))
+
+        return t
