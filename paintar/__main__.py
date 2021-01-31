@@ -9,7 +9,7 @@ from . import utilities as ut
 from .camera import Camera, StereoCamera
 from .tracker import Tracker
 
-PATH_VIDEO = Path("../simone/video")
+PATH_VIDEO = Path("../video")
 PATH_VIDEO_1 = PATH_VIDEO / "video1.avi"
 PATH_VIDEO_2 = PATH_VIDEO / "video2.avi"
 PATH_VIDEO_AR = PATH_VIDEO / "ar.mp4"
@@ -17,7 +17,7 @@ PATH_VIDEO_AR = PATH_VIDEO / "ar.mp4"
 SKIP_FRAMES = 30 * 10 * 0
 TEST_FRAMES = 1500
 
-PATH_PARAMETERS = Path("../simone/data")
+PATH_PARAMETERS = Path("../data")
 PATH_PARAMETERS_1 = PATH_PARAMETERS / "camera1"
 PATH_PARAMETERS_2 = PATH_PARAMETERS / "camera2"
 
@@ -27,8 +27,8 @@ DIST1 = np.loadtxt(PATH_PARAMETERS_1 / "distortion.txt")
 DIST2 = np.loadtxt(PATH_PARAMETERS_2 / "distortion.txt")
 R1 = np.loadtxt(PATH_PARAMETERS_1 / "R.txt")
 R2 = np.loadtxt(PATH_PARAMETERS_2 / "R.txt")
-T1 = np.loadtxt(PATH_PARAMETERS_1 / "t.txt")
-T2 = np.loadtxt(PATH_PARAMETERS_2 / "t.txt")
+T1 = np.loadtxt(PATH_PARAMETERS_1 / "t.txt") / 1000
+T2 = np.loadtxt(PATH_PARAMETERS_2 / "t.txt") / 1000
 
 CHESSBOARD_SIZE = (9, 6)
 CHESSBOARD_SQUARE_SIZE = 0.0245
@@ -67,4 +67,5 @@ if __name__ == "__main__":
         if not stereo_cam.grab():
             break
 
-        tr.loop(False)
+        if not tr.loop(False):
+            break
