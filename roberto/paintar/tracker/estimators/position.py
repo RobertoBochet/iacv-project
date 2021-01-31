@@ -27,3 +27,13 @@ class Position3DEstimator(fpk.KalmanFilter):
     def reset(self):
         self.x = self._init_x
         self.P = self._init_p
+
+    def predict(self, **kwargs):
+        super(Position3DEstimator, self).predict(**kwargs)
+
+        if self.P > self._init_p:
+            self.reset()
+
+    @property
+    def is_reset(self) -> bool:
+        return np.array_equal(self.x, self._init_x) and np.array_equal(self.P, self._init_p)
