@@ -38,7 +38,7 @@ class Tracker:
         self._aruco_dict = aruco_dict
         self._aruco_param = aruco_param
 
-        self._aruco_estimator_tip = Position3DEstimator(r=10, q=1)
+        self._aruco_estimator_tip = Position3DEstimator(r=5, q=1)
 
         self._aruco_threshold_locked = 40  # threshold on uncertain to consider aruco position locked
         self._aruco_lost_counter_init = 10  # numbers of iteration before consider lost the aruco
@@ -96,10 +96,10 @@ class Tracker:
         if self.status == Status.CAMERA_NO_CALIBRATE:
             raise NotImplemented
 
+        draw_axis(db1, self._stereo_cam.cam1.m)
+        draw_axis(db2, self._stereo_cam.cam2.m)
         ###### almost NO_LOCK ######
-        if self.status.value >= Status.NO_LOCK.value:
-            draw_axis(db1, self._stereo_cam.cam1.m)
-            draw_axis(db2, self._stereo_cam.cam2.m)
+        if self.status.value >= Status.NO_LOCK.value and self.status.value < Status.TIP_LOCKED.value:
 
             t = self._stereo_cam.triangulate_aruco(self._aruco_pen_id, self._aruco_pen_size, grab=False,
                                                    aruco_dict=self._aruco_dict, aruco_param=self._aruco_param)
@@ -109,7 +109,8 @@ class Tracker:
 
                 p = t @ self._aruco_pen_tip_offset
 
-                self._aruco_estimator_tip.update(ut.proj2cart(p))
+                if self.status.value < Status.ARUCO_LOCKED.value:
+                    self._aruco_estimator_tip.update(ut.proj2cart(p))
 
                 p1 = ut.proj2cart(self._stereo_cam.cam1.m @ p)
                 p2 = ut.proj2cart(self._stereo_cam.cam2.m @ p)
@@ -121,6 +122,8 @@ class Tracker:
 
         ###### almost ARUCO_DETECTED ######
         if self.status.value >= Status.ARUCO_DETECTED.value:
+            self._aruco_estimator_tip.predict()
+
             if db1 is not None:
                 p = ut.cart2proj(self._aruco_estimator_tip.x)
 
@@ -133,13 +136,13 @@ class Tracker:
                               (0, 0, 255), markerType=cv.MARKER_CROSS, markerSize=20)
 
         ###### almost ARUCO_LOCKED ######
-        if self.status.value >= Status.ARUCO_LOCKED.value:
+        if self.status.value == Status.ARUCO_LOCKED.value:
             p = ut.cart2proj(self._aruco_estimator_tip.x)
 
             p1 = ut.proj2cart(self._stereo_cam.cam1.m @ p)
             p2 = ut.proj2cart(self._stereo_cam.cam2.m @ p)
 
-            # gets points in format (y, x)
+            # gets points in format (y, x) aka (row, col)
             p1 = p1[::-1]
             p2 = p2[::-1]
 
@@ -182,15 +185,13 @@ class Tracker:
                     db1[0:250, 0:250] = cv.resize(crop1, (250, 250))
                     db2[0:250, 0:250] = cv.resize(crop2, (250, 250))
 
-        ###### almost ARUCO_LOCKED ######
-        if self.status.value >= Status.TIP_LOCKED.value and False:
+        ###### almost TIP_LOCKED ######
+        if self.status.value >= Status.TIP_LOCKED.value:
             # project the direct (ie not through aruco) tip estimation. x is in world (sheet) reference frame
-            # for now this is the main difference between TIP_LOCKED and ARUCO_LOCKED
-            self._aruco_estimator_tip.predict()
             p1 = ut.proj2cart(self._stereo_cam.cam1.m @ ut.cart2proj(self._aruco_estimator_tip.x))
             p2 = ut.proj2cart(self._stereo_cam.cam2.m @ ut.cart2proj(self._aruco_estimator_tip.x))
 
-            # gets points in format (y, x)
+            # gets points in format (y, x) aka (row, col)
             p1 = p1[::-1]
             p2 = p2[::-1]
 

@@ -60,6 +60,7 @@ if __name__ == "__main__":
         stereo_cam.grab()
 
     stereo_cam.grab()
+    cv.namedWindow("main", cv.WINDOW_NORMAL)    # needed when the output image is larger than the screen
 
     while True:
         t_i = time.time()
