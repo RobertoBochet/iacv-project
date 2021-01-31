@@ -151,8 +151,8 @@ class Tracker:
             rejected1 = np.empty(0)
             rejected2 = np.empty(0)
 
-            tip1 = self.detect_tip_feature(crop1, rejected=rejected1)
-            tip2 = self.detect_tip_feature(crop2, rejected=rejected2)
+            tip1, crop1 = self.detect_tip_feature(crop1, rejected=rejected1)
+            tip2, crop2 = self.detect_tip_feature(crop2, rejected=rejected2)
 
             if tip1 is not None and tip2 is not None:
                 # updates the estimation of tip position from triangulation
@@ -200,8 +200,8 @@ class Tracker:
             rejected1 = np.empty(0)
             rejected2 = np.empty(0)
 
-            tip1 = self.detect_tip_feature(crop1, rejected=rejected1)
-            tip2 = self.detect_tip_feature(crop2, rejected=rejected2)
+            tip1, crop1 = self.detect_tip_feature(crop1, rejected=rejected1)
+            tip2, crop2 = self.detect_tip_feature(crop2, rejected=rejected2)
 
             # updates the estimation of tip position from triangulation
             tip = self._stereo_cam.triangulate_point(ut.cart2proj(tip1 + corner1), ut.cart2proj(tip2 + corner2))
@@ -244,32 +244,22 @@ class Tracker:
         crop1 = np.copy(img1[crop1_limits[0, 0]:crop1_limits[0, 1], crop1_limits[1, 0]:crop1_limits[1, 1]])
         crop2 = np.copy(img2[crop2_limits[0, 0]:crop2_limits[0, 1], crop2_limits[1, 0]:crop2_limits[1, 1]])
 
-        hsv = cv.cvtColor(crop1, cv.COLOR_BGR2HSV)
-        mask = cv.inRange(hsv, np.array([0, 0, 0]), np.array([180, 255, 40]))
-        mask = cv.bitwise_not(mask)
-        mask = cv.cvtColor(mask, cv.COLOR_GRAY2RGB)  # needed by bitwise_or
-        crop1 = cv.bitwise_or(mask, crop1)  # replace everthing brighter than V = 40 with pure white
-
-        hsv = cv.cvtColor(crop2, cv.COLOR_BGR2HSV)
-        mask = cv.inRange(hsv, np.array([0, 0, 0]), np.array([180, 255, 40]))
-        mask = cv.bitwise_not(mask)
-        mask = cv.cvtColor(mask, cv.COLOR_GRAY2RGB)  # needed by bitwise_or
-        crop2 = cv.bitwise_or(mask, crop2)  # replace everthing brighter than V = 40 with pure white
-
         # extract x,y coordinates of the top left corner of the cropped area
         corner1 = np.array([crop1_limits[1, 0], crop1_limits[0, 0]])
         corner2 = np.array([crop2_limits[1, 0], crop2_limits[0, 0]])
 
         return crop1, corner1, crop2, corner2
 
-    def detect_tip_feature(self, tip_area: np.ndarray, rejected: np.ndarray = None) -> Union[np.ndarray, None]:
+    def detect_tip_feature(self, tip_area: np.ndarray, rejected: np.ndarray = None) -> tuple[Union[np.ndarray, None], np.ndarray]:
 
-        # hsv = cv.cvtColor(tip_area, cv.COLOR_BGR2HSV)
-        # mask = cv.inRange(hsv, np.array([0, 0, 0]), np.array([180, 255, 50]))
-        # mask = cv.cvtColor(mask, cv.COLOR_GRAY2RGB)  # needed by bitwise_or
-        # tip_area = cv.bitwise_or(mask, tip_area)  # replace everthing brighter than V = 80 with pure white
-        tip_area = cv.cvtColor(tip_area, cv.COLOR_BGR2GRAY)  # needed by shi-tomasi detector
-        features = cv.goodFeaturesToTrack(tip_area, 3, .3, 5)  # top 3 features are returned
+        hsv = cv.cvtColor(tip_area, cv.COLOR_BGR2HSV)
+        mask = cv.inRange(hsv, np.array([0, 0, 0]), np.array([180, 255, 40]))
+        mask = cv.bitwise_not(mask)
+        maskRGB = cv.cvtColor(mask, cv.COLOR_GRAY2RGB)  # needed by bitwise_or
+        tip_area = cv.bitwise_or(maskRGB, tip_area)  # replace everthing brighter than V = 40 with pure white
+
+        tip_area_gray = cv.cvtColor(tip_area, cv.COLOR_BGR2GRAY)  # needed by shi-tomasi detector
+        features = cv.goodFeaturesToTrack(tip_area_gray, 3, .3, 5)  # top 3 features are returned as an array of [x,y] points
 
         # if no feature is detected return None
         if features is None:
@@ -277,10 +267,14 @@ class Tracker:
 
         features = np.squeeze(features, axis=1)
 
-        # center of the crop area is the believed position of the tip
-        crop_center = np.array([self._aruco_tip_crop_size1, self._aruco_tip_crop_size1])
-        # sort by closeness to the old believed position
-        features = np.array(sorted(features, key=lambda feature: np.linalg.norm(crop_center - feature)))
+        circle_kernel = cv.getStructuringElement(cv.MORPH_RECT, (7,7))  # basically a 7x7 matrix of 1s
+        filtered_area = cv.filter2D(mask, cv.CV_16S, circle_kernel)
+        # brightest -> less dark around the candidate -> high likelihood of being the tip
+        # normalize the results from 0 to 255
+        filtered_area = cv.normalize(filtered_area, filtered_area, alpha=0, beta=255, norm_type=cv.NORM_MINMAX, dtype=cv.CV_8U)
+
+        # sort by brightness in the filtered area
+        features = np.array(sorted(features, key=lambda feature: filtered_area[feature[1].astype(np.uint), feature[0].astype(np.uint)], reverse=True))
 
         # if rejected elements are required put them in the array
         if rejected is not None and features.shape[0] > 1:
@@ -288,7 +282,8 @@ class Tracker:
             rejected.resize(rej_feat.shape, refcheck=False)
             np.copyto(rejected, rej_feat, casting="unsafe")
 
-        return features[0]
+        filtered_area = cv.cvtColor(filtered_area, cv.COLOR_GRAY2BGR)
+        return features[0], filtered_area
 
     def _write_info(self, img: np.ndarray) -> np.ndarray:
         text = self.text_info.splitlines()
