@@ -1,7 +1,11 @@
 import enum
 from typing import Union
 
-import cv2.cv2 as cv
+try:
+    import cv2.cv2 as cv
+except ModuleNotFoundError:
+    import cv2 as cv
+
 import numpy as np
 
 from .estimators import Position3DEstimator
@@ -34,12 +38,9 @@ class Tracker:
         self._aruco_dict = aruco_dict
         self._aruco_param = aruco_param
 
-        self._aruco_estimator_1 = Position3DEstimator(r=5, q=20)
-        self._aruco_estimator_2 = Position3DEstimator(r=5, q=20)
         self._aruco_estimator_tip = Position3DEstimator(r=10, q=1)
 
         self._aruco_threshold_locked = 40  # threshold on uncertain to consider aruco position locked
-        self._aruco_threshold_detected = 500  # threshold on uncertain to consider aruco position detected
         self._aruco_lost_counter_init = 10  # numbers of iteration before consider lost the aruco
         self._aruco_tip_crop_size1 = 30
         self._aruco_tip_crop_size2 = 30
@@ -60,9 +61,7 @@ class Tracker:
     def text_info(self) -> str:
         text = ""
         if self.status in {Status.ARUCO_DETECTED, Status.ARUCO_LOCKED, Status.TIP_LOCKED}:
-            text += "aruco_inc: ({:.4f}, {:.4f}, {:.4f})\n".format(
-                np.linalg.norm(np.diagonal(self._aruco_estimator_1.P)),
-                np.linalg.norm(np.diagonal(self._aruco_estimator_2.P)),
+            text += "aruco_inc: {:.4f}\n".format(
                 np.linalg.norm(np.diagonal(self._aruco_estimator_tip.P))
             )
 
