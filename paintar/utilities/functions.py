@@ -75,7 +75,7 @@ def forge_projective_matrix(k: np.ndarray, r: np.ndarray = None, t: np.ndarray =
         return np.hstack((k, np.zeros((3, 1))))
 
 
-def crop_around(point: np.ndarray, size: Union[np.ndarray, int], bounds: np.ndarray = None) -> np.ndarray:
+def get_crop_around_limits(point: np.ndarray, size: Union[np.ndarray, int], bounds: np.ndarray = None) -> np.ndarray:
     """
     given a point in 2D space, and a size of a rectangle or a circle radius
     returns the limits for a rectangle crop around the point
@@ -86,7 +86,11 @@ def crop_around(point: np.ndarray, size: Union[np.ndarray, int], bounds: np.ndar
     if np.ndim(point) == 2:
         point = point.reshape(2)
 
-    half_size = size * 0.5 if isinstance(size, np.ndarray) else np.array([size, size])
+    half_size = size * 0.5 if isinstance(size, np.ndarray) else 0.5 * np.array([size, size])
+
+    # the point coordinates are x,y the image coordinate are y,x
+    point = point[::-1]
+    half_size = half_size[::-1]
 
     limits = np.vstack((point - half_size, point + half_size)).T
 
@@ -104,3 +108,18 @@ def crop_around(point: np.ndarray, size: Union[np.ndarray, int], bounds: np.ndar
             limits[1, 1] = bounds[1, 1]
 
     return limits.astype(np.int)
+
+
+def crop_around(img: np.ndarray, point: np.ndarray, size: Union[np.ndarray, int]) -> tuple[np.ndarray, np.ndarray]:
+    """
+    given a point in 2D space, a size of a rectangle or a circle radius and the image
+    returns the crop around the point, and the coordinate of the left-up corner
+    """
+    crop_limit = get_crop_around_limits(point, size, bounds=np.array(img.shape[0:2]))
+
+    y_min = crop_limit[0, 0]
+    y_max = crop_limit[0, 1]
+    x_min = crop_limit[1, 0]
+    x_max = crop_limit[1, 1]
+
+    return np.array([x_min, y_min]), img[y_min:y_max, x_min:x_max]
