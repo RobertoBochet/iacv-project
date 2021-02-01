@@ -1,3 +1,5 @@
+from typing import Union
+
 import cv2 as cv
 import numpy as np
 
@@ -11,6 +13,8 @@ class Camera(cv.VideoCapture):
                  *args, **kwargs):
         super().__init__(source, *args, **kwargs)
 
+        self._frame_in_buffer = False
+        self._frame_buffer = None
         self._k = k
         self._dist = dist
         self._r = r
@@ -74,17 +78,17 @@ class Camera(cv.VideoCapture):
         # TODO needs more test
         return self._frame_size
 
-    def shot(self) -> np.array:
-        _, img = self.read()
-        return img
-
-    def retrieve_undistorted(self, *args, **kwargs):
-        _, img = self.retrieve(*args, **kwargs)
-        return cv.undistort(img, self._k, self._dist)
-
     def retrieve(self, *args, **kwargs):
         _, img = super(Camera, self).retrieve(*args, **kwargs)
-        return _, cv.undistort(img, self._k, self._dist)
+        if not self._frame_in_buffer:
+            self._frame_buffer = cv.undistort(img, self._k, self._dist)
+            self._frame_in_buffer = True
+
+        return _, self._frame_buffer
+
+    def grab(self):
+        super(Camera, self).grab()
+        self._frame_in_buffer = False
 
     def calibrate(self):
         raise NotImplemented
@@ -104,7 +108,7 @@ class Camera(cv.VideoCapture):
             np.copyto(debug_buffer, img, casting="no")
             cv.drawChessboardCorners(debug_buffer, chessboard.size, corners, True)
 
-        ret, r, t, _ = cv.solvePnPRansac(chessboard.get_points(), corners, self._k, self._dist)
+        ret, r, t, _ = cv.solvePnPRansac(chessboard.get_points(), corners, self._k)
 
         self._r, _ = cv.Rodrigues(r)
         self._t = t.reshape(3)
@@ -113,7 +117,7 @@ class Camera(cv.VideoCapture):
 
     def find_aruco(self, aruco_id: int, grab: bool = True,
                    aruco_dict: cv.aruco_Dictionary = None,
-                   aruco_param: cv.aruco_DetectorParameters = None) -> np.array:
+                   aruco_param: cv.aruco_DetectorParameters = None) -> Union[None, np.ndarray]:
         if grab:
             self.grab()
 
