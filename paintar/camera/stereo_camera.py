@@ -65,26 +65,20 @@ class StereoCamera:
 
         return ret1 and ret2
 
-    def retrieve(self) -> tuple[np.array, np.array]:
+    def retrieve(self, *args, **kwargs) -> tuple[np.array, np.array]:
         """
         retrieves the cams' images from their frame buffers
         """
-        img1 = self._cam1.retrieve()
-        img2 = self._cam2.retrieve()
+        img1 = self._cam1.retrieve(*args, **kwargs)
+        img2 = self._cam2.retrieve(*args, **kwargs)
 
         return img1, img2
-
-    def retrieve_undistorted(self) -> tuple[np.array, np.array]:
-        """
-        retrieves the undistorted cams' images from their frame buffers
-        """
-        return self._cam1.retrieve_undistorted(), self._cam2.retrieve_undistorted()
 
     def triangulate_points(self, x1, x2):
         """
         given two sets of points from the two cam in P^2 returns the corresponding set of points in P^3
         """
-        assert len(x2) == len(x1), "Number of points don't match."
+        assert len(x2) == len(x1), "Number of points does not match."
         return np.array([self.triangulate_point(x[0], x[1]) for x in zip(x1, x2)])
 
     def triangulate_point(self, x1, x2):
@@ -111,9 +105,9 @@ class StereoCamera:
             self.grab()
 
         ar1 = self._cam1.find_aruco(aruco_id, grab=False,
-                                         aruco_dict=aruco_dict, aruco_param=aruco_param)
+                                    aruco_dict=aruco_dict, aruco_param=aruco_param)
         ar2 = self._cam2.find_aruco(aruco_id, grab=False,
-                                         aruco_dict=aruco_dict, aruco_param=aruco_param)
+                                    aruco_dict=aruco_dict, aruco_param=aruco_param)
 
         if ar1 is None or ar2 is None:
             # aruco is not found in both the views

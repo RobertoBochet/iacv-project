@@ -78,11 +78,15 @@ class Camera(cv.VideoCapture):
         # TODO needs more test
         return self._frame_size
 
-    def retrieve(self, *args, **kwargs):
+    def retrieve(self, clone: bool = False, *args, **kwargs):
         _, img = super(Camera, self).retrieve(*args, **kwargs)
+
         if not self._frame_in_buffer:
             self._frame_buffer = cv.undistort(img, self._k, self._dist)
             self._frame_in_buffer = True
+
+        if clone:
+            return np.copy(self._frame_buffer)
 
         return self._frame_buffer
 
@@ -108,7 +112,7 @@ class Camera(cv.VideoCapture):
             np.copyto(debug_buffer, img, casting="no")
             cv.drawChessboardCorners(debug_buffer, chessboard.size, corners, True)
 
-        ret, r, t, _ = cv.solvePnPRansac(chessboard.get_points(), corners, self._k)
+        ret, r, t, _ = cv.solvePnPRansac(chessboard.get_points(), corners, self._k, None)
 
         self._r, _ = cv.Rodrigues(r)
         self._t = t.reshape(3)
@@ -126,10 +130,7 @@ class Camera(cv.VideoCapture):
         img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
         img = cv.equalizeHist(img)
 
-        corners, ids, _ = cv.aruco.detectMarkers(img, aruco_dict, parameters=aruco_param,
-                                                 cameraMatrix=self._k,
-                                                 distCoeff=self._dist
-                                                 )
+        corners, ids, _ = cv.aruco.detectMarkers(img, aruco_dict, parameters=aruco_param, cameraMatrix=self._k)
         if ids is None:
             # no aruco detected
             return None
@@ -162,12 +163,12 @@ class Camera(cv.VideoCapture):
         p4, crop4 = crop_around(img, points[3], 10)
 
         crop = np.vstack((
-            np.hstack((crop1,crop2)),
-            np.hstack((crop3,crop4)),
+            np.hstack((crop1, crop2)),
+            np.hstack((crop3, crop4)),
         ))
         # TODO: complete the wip
-        #cv.imshow("main", crop)
-        #cv.waitKey(0)
+        # cv.imshow("main", crop)
+        # cv.waitKey(0)
 
     def find_aruco_pose(self, aruco_id: int, marker_size: float, debug_buffer: np.array = None, **kwargs):
         """

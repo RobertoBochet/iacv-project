@@ -92,7 +92,7 @@ class Tracker:
         if grab:
             self._stereo_cam.grab()
 
-        db1, db2 = self._stereo_cam.retrieve()
+        db1, db2 = self._stereo_cam.retrieve(clone=True)
 
         if self.status == Status.CAMERA_NO_CALIBRATE:
             raise NotImplemented
