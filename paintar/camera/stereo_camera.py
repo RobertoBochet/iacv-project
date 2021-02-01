@@ -69,8 +69,8 @@ class StereoCamera:
         """
         retrieves the cams' images from their frame buffers
         """
-        _, img1 = self._cam1.retrieve()
-        _, img2 = self._cam2.retrieve()
+        img1 = self._cam1.retrieve()
+        img2 = self._cam2.retrieve()
 
         return img1, img2
 
@@ -110,10 +110,10 @@ class StereoCamera:
         if grab:
             self.grab()
 
-        ar1 = self._cam1.find_aruco(aruco_id, grab=False,
-                                    aruco_dict=aruco_dict, aruco_param=aruco_param)
-        ar2 = self._cam2.find_aruco(aruco_id, grab=False,
-                                    aruco_dict=aruco_dict, aruco_param=aruco_param)
+        ar1 = self._cam1.find_aruco_well(aruco_id, grab=False,
+                                         aruco_dict=aruco_dict, aruco_param=aruco_param)
+        ar2 = self._cam2.find_aruco_well(aruco_id, grab=False,
+                                         aruco_dict=aruco_dict, aruco_param=aruco_param)
 
         if ar1 is None or ar2 is None:
             # aruco is not found in both the views

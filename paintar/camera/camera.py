@@ -3,7 +3,7 @@ from typing import Union
 import cv2 as cv
 import numpy as np
 
-from ..utilities import Chessboard, forge_isometry, forge_projective_matrix
+from ..utilities import Chessboard, forge_isometry, forge_projective_matrix, crop_around
 
 
 class Camera(cv.VideoCapture):
@@ -84,11 +84,11 @@ class Camera(cv.VideoCapture):
             self._frame_buffer = cv.undistort(img, self._k, self._dist)
             self._frame_in_buffer = True
 
-        return _, self._frame_buffer
+        return self._frame_buffer
 
-    def grab(self):
-        super(Camera, self).grab()
+    def grab(self) -> bool:
         self._frame_in_buffer = False
+        return super(Camera, self).grab()
 
     def calibrate(self):
         raise NotImplemented
@@ -121,7 +121,7 @@ class Camera(cv.VideoCapture):
         if grab:
             self.grab()
 
-        _, img = self.retrieve()
+        img = self.retrieve()
 
         img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
         img = cv.equalizeHist(img)
@@ -145,6 +145,29 @@ class Camera(cv.VideoCapture):
             return None
 
         return np.squeeze(aruco[0][1])
+
+    def find_aruco_well(self, *args, **kwargs) -> Union[None, np.ndarray]:
+        points = self.find_aruco(*args, **kwargs)
+
+        if points is None:
+            return None
+
+        points = points.astype(int)
+
+        img = self.retrieve()
+
+        p1, crop1 = crop_around(img, points[0], 10)
+        p2, crop2 = crop_around(img, points[1], 10)
+        p3, crop3 = crop_around(img, points[2], 10)
+        p4, crop4 = crop_around(img, points[3], 10)
+
+        crop = np.vstack((
+            np.hstack((crop1,crop2)),
+            np.hstack((crop3,crop4)),
+        ))
+        # TODO: complete the wip
+        #cv.imshow("main", crop)
+        #cv.waitKey(0)
 
     def find_aruco_pose(self, aruco_id: int, marker_size: float, debug_buffer: np.array = None, **kwargs):
         """
