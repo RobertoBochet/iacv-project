@@ -8,7 +8,7 @@ except ModuleNotFoundError:
 
 import numpy as np
 
-from .estimators import Position3DEstimator
+from .estimators import PositionSpeed3DEstimator
 from .. import utilities as ut
 from ..camera import StereoCamera
 from ..utilities import draw_axis
@@ -38,7 +38,7 @@ class Tracker:
         self._aruco_dict = aruco_dict
         self._aruco_param = aruco_param
 
-        self._aruco_estimator_tip = Position3DEstimator(r=5, q=1)
+        self._aruco_estimator_tip = PositionSpeed3DEstimator(r_p=1, q_p=5, q_s=.5)
 
         self._aruco_threshold_locked = 40  # threshold on uncertain to consider aruco position locked
         self._aruco_lost_counter_init = 10  # numbers of iteration before consider lost the aruco
@@ -98,6 +98,9 @@ class Tracker:
 
         draw_axis(db1, self._stereo_cam.cam1.m)
         draw_axis(db2, self._stereo_cam.cam2.m)
+
+        self._aruco_estimator_tip.predict()
+
         ###### almost NO_LOCK ######
         if self.status.value >= Status.NO_LOCK.value and self.status.value < Status.TIP_LOCKED.value:
 
@@ -122,10 +125,9 @@ class Tracker:
 
         ###### almost ARUCO_DETECTED ######
         if self.status.value >= Status.ARUCO_DETECTED.value:
-            self._aruco_estimator_tip.predict()
 
             if db1 is not None:
-                p = ut.cart2proj(self._aruco_estimator_tip.x)
+                p = ut.cart2proj(self._aruco_estimator_tip.x[0:3])
 
                 p1 = ut.proj2cart(self._stereo_cam.cam1.m @ p)
                 p2 = ut.proj2cart(self._stereo_cam.cam2.m @ p)
@@ -137,16 +139,15 @@ class Tracker:
 
         ###### almost ARUCO_LOCKED ######
         if self.status.value == Status.ARUCO_LOCKED.value:
-            p = ut.cart2proj(self._aruco_estimator_tip.x)
+            p = ut.cart2proj(self._aruco_estimator_tip.x[0:3])
 
             p1 = ut.proj2cart(self._stereo_cam.cam1.m @ p)
             p2 = ut.proj2cart(self._stereo_cam.cam2.m @ p)
 
-            # gets points in format (y, x) aka (row, col)
-            p1 = p1[::-1]
-            p2 = p2[::-1]
+            img1, img2 = self._stereo_cam.retrieve()
 
-            crop1, corner1, crop2, corner2 = self.crop_around_tip(p1, p2)
+            corner1, crop1 = ut.crop_around(img1, p1, self._aruco_tip_crop_size1)
+            corner2, crop2 = ut.crop_around(img2, p2, self._aruco_tip_crop_size2)
 
             rejected1 = np.empty(0)
             rejected2 = np.empty(0)
@@ -233,24 +234,8 @@ class Tracker:
 
         return not cv.getWindowProperty('main', cv.WND_PROP_VISIBLE) < 1
 
-    def crop_around_tip(self, p1, p2):
-        # computes the crops limits on the pen tip
-        crop1_limits = ut.crop_around(p1, self._aruco_tip_crop_size1, bounds=self._stereo_cam.cam1.frame_size)
-        crop2_limits = ut.crop_around(p2, self._aruco_tip_crop_size2, bounds=self._stereo_cam.cam2.frame_size)
-
-        img1, img2 = self._stereo_cam.retrieve()
-
-        # creates the crops around the estimate tip positions
-        crop1 = np.copy(img1[crop1_limits[0, 0]:crop1_limits[0, 1], crop1_limits[1, 0]:crop1_limits[1, 1]])
-        crop2 = np.copy(img2[crop2_limits[0, 0]:crop2_limits[0, 1], crop2_limits[1, 0]:crop2_limits[1, 1]])
-
-        # extract x,y coordinates of the top left corner of the cropped area
-        corner1 = np.array([crop1_limits[1, 0], crop1_limits[0, 0]])
-        corner2 = np.array([crop2_limits[1, 0], crop2_limits[0, 0]])
-
-        return crop1, corner1, crop2, corner2
-
-    def detect_tip_feature(self, tip_area: np.ndarray, rejected: np.ndarray = None) -> tuple[Union[np.ndarray, None], np.ndarray]:
+    def detect_tip_feature(self, tip_area: np.ndarray, rejected: np.ndarray = None) -> tuple[
+        Union[np.ndarray, None], Union[np.ndarray, None]]:
 
         hsv = cv.cvtColor(tip_area, cv.COLOR_BGR2HSV)
         mask = cv.inRange(hsv, np.array([0, 0, 0]), np.array([180, 255, 40]))
@@ -259,22 +244,26 @@ class Tracker:
         tip_area = cv.bitwise_or(maskRGB, tip_area)  # replace everthing brighter than V = 40 with pure white
 
         tip_area_gray = cv.cvtColor(tip_area, cv.COLOR_BGR2GRAY)  # needed by shi-tomasi detector
-        features = cv.goodFeaturesToTrack(tip_area_gray, 3, .3, 5)  # top 3 features are returned as an array of [x,y] points
+        features = cv.goodFeaturesToTrack(tip_area_gray, 3, .3,
+                                          5)  # top 3 features are returned as an array of [x,y] points
 
         # if no feature is detected return None
         if features is None:
-            return None
+            return None, None
 
         features = np.squeeze(features, axis=1)
 
-        circle_kernel = cv.getStructuringElement(cv.MORPH_RECT, (7,7))  # basically a 7x7 matrix of 1s
+        circle_kernel = cv.getStructuringElement(cv.MORPH_RECT, (7, 7))  # basically a 7x7 matrix of 1s
         filtered_area = cv.filter2D(mask, cv.CV_16S, circle_kernel)
         # brightest -> less dark around the candidate -> high likelihood of being the tip
         # normalize the results from 0 to 255
-        filtered_area = cv.normalize(filtered_area, filtered_area, alpha=0, beta=255, norm_type=cv.NORM_MINMAX, dtype=cv.CV_8U)
+        filtered_area = cv.normalize(filtered_area, filtered_area, alpha=0, beta=255, norm_type=cv.NORM_MINMAX,
+                                     dtype=cv.CV_8U)
 
         # sort by brightness in the filtered area
-        features = np.array(sorted(features, key=lambda feature: filtered_area[feature[1].astype(np.uint), feature[0].astype(np.uint)], reverse=True))
+        features = np.array(
+            sorted(features, key=lambda feature: filtered_area[feature[1].astype(np.uint), feature[0].astype(np.uint)],
+                   reverse=True))
 
         # if rejected elements are required put them in the array
         if rejected is not None and features.shape[0] > 1:
@@ -287,9 +276,9 @@ class Tracker:
 
     def _write_info(self, img: np.ndarray) -> np.ndarray:
         text = self.text_info.splitlines()
-        dp = np.array([0, 20])
+        dp = np.array([0, 40])
         pos = np.array([0, img.shape[0]]) + np.array([5, -5]) - dp * len(text)
         for i in range(len(text)):
             pos += dp
             cv.putText(img, text[i], tuple(pos),
-                       cv.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
+                       cv.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 3)
