@@ -33,7 +33,7 @@ T2 = np.loadtxt(PATH_PARAMETERS_2 / "t.txt") / 1000
 CHESSBOARD_SIZE = (9, 6)
 CHESSBOARD_SQUARE_SIZE = 0.0245
 
-ARUCO_PEN_TIP_OFFSET = np.array([0, -0.15, 0, 1])
+ARUCO_PEN_TIP_OFFSET = np.array([0, -0.139, 0, 1])
 ARUCO_PEN_ID = 0
 ARUCO_PEN_SIZE = 0.022
 ARUCO_DICT = cv.aruco.custom_dictionary(1, 3)

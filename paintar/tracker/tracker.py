@@ -38,12 +38,12 @@ class Tracker:
         self._aruco_dict = aruco_dict
         self._aruco_param = aruco_param
 
-        self._aruco_estimator_tip = PositionSpeed3DEstimator(r_p=1, q_p=5, q_s=.5)
+        self._aruco_estimator_tip = PositionSpeed3DEstimator(r_p=0.01, q_p=0.001, q_s=.0001)
 
-        self._aruco_threshold_locked = 40  # threshold on uncertain to consider aruco position locked
+        self._aruco_threshold_locked = 400  # threshold on uncertain to consider aruco position locked
         self._aruco_lost_counter_init = 10  # numbers of iteration before consider lost the aruco
-        self._aruco_tip_crop_size1 = 30
-        self._aruco_tip_crop_size2 = 30
+        self._aruco_tip_crop_size1 = 60
+        self._aruco_tip_crop_size2 = 60
 
         self._aruco_lost_counter = 0
 
@@ -60,6 +60,7 @@ class Tracker:
     @property
     def text_info(self) -> str:
         text = ""
+        text += "tip Z: {:.4f}\n".format(float(self._aruco_estimator_tip.pos[2]))
         if self.status in {Status.ARUCO_DETECTED, Status.ARUCO_LOCKED, Status.TIP_LOCKED}:
             text += "aruco_inc: {:.4f}\n".format(
                 np.linalg.norm(np.diagonal(self._aruco_estimator_tip.P))
@@ -99,8 +100,6 @@ class Tracker:
         draw_axis(db1, self._stereo_cam.cam1.m)
         draw_axis(db2, self._stereo_cam.cam2.m)
 
-        self._aruco_estimator_tip.predict()
-
         ###### almost NO_LOCK ######
         if self.status.value >= Status.NO_LOCK.value and self.status.value < Status.TIP_LOCKED.value:
 
@@ -112,7 +111,7 @@ class Tracker:
 
                 p = t @ self._aruco_pen_tip_offset
 
-                if self.status.value < Status.ARUCO_LOCKED.value:
+                if self.status.value <= Status.ARUCO_LOCKED.value:
                     self._aruco_estimator_tip.update(ut.proj2cart(p))
 
                 p1 = ut.proj2cart(self._stereo_cam.cam1.m @ p)
@@ -125,6 +124,7 @@ class Tracker:
 
         ###### almost ARUCO_DETECTED ######
         if self.status.value >= Status.ARUCO_DETECTED.value:
+            self._aruco_estimator_tip.predict()
 
             if db1 is not None:
                 p = ut.cart2proj(self._aruco_estimator_tip.x[0:3])
@@ -183,20 +183,22 @@ class Tracker:
                     # cv.drawMarker(db2, tuple(testp2.astype(np.uint)),
                     #                 (255, 0, 0), markerType=cv.MARKER_CROSS, markerSize=10)
 
-                    db1[0:250, 0:250] = cv.resize(crop1, (250, 250))
-                    db2[0:250, 0:250] = cv.resize(crop2, (250, 250))
+            db1[0:250, 0:250] = cv.resize(crop1, (250, 250))
+            db2[0:250, 0:250] = cv.resize(crop2, (250, 250))
 
         ###### almost TIP_LOCKED ######
         if self.status.value >= Status.TIP_LOCKED.value:
             # project the direct (ie not through aruco) tip estimation. x is in world (sheet) reference frame
-            p1 = ut.proj2cart(self._stereo_cam.cam1.m @ ut.cart2proj(self._aruco_estimator_tip.x))
-            p2 = ut.proj2cart(self._stereo_cam.cam2.m @ ut.cart2proj(self._aruco_estimator_tip.x))
+            p1 = ut.proj2cart(self._stereo_cam.cam1.m @ ut.cart2proj(self._aruco_estimator_tip.pos))
+            p2 = ut.proj2cart(self._stereo_cam.cam2.m @ ut.cart2proj(self._aruco_estimator_tip.pos))
 
-            # gets points in format (y, x) aka (row, col)
-            p1 = p1[::-1]
-            p2 = p2[::-1]
+            # # gets points in format (y, x) aka (row, col)
+            # p1 = p1[::-1]
+            # p2 = p2[::-1]
 
-            crop1, corner1, crop2, corner2 = self.crop_around_tip(p1, p2)
+            img1, img2 = self._stereo_cam.retrieve()
+            corner1, crop1 = ut.crop_around(img1, p1, self._aruco_tip_crop_size1)
+            corner2, crop2 = ut.crop_around(img2, p2, self._aruco_tip_crop_size2)
 
             rejected1 = np.empty(0)
             rejected2 = np.empty(0)
@@ -206,7 +208,7 @@ class Tracker:
 
             # updates the estimation of tip position from triangulation
             tip = self._stereo_cam.triangulate_point(ut.cart2proj(tip1 + corner1), ut.cart2proj(tip2 + corner2))
-            self._aruco_estimator_tip.update(ut.proj2cart(tip))
+            self._aruco_estimator_tip.update(ut.proj2cart(tip), R=0.001)
 
             if db1 is not None:
                 cv.drawMarker(crop1, tuple(tip1.astype(np.uint)),
@@ -229,6 +231,8 @@ class Tracker:
 
         self._write_info(img)
 
+        print(self._aruco_estimator_tip.pos[2].astype(np.float))
+
         cv.imshow("main", img)
         cv.waitKey(1)
 
@@ -249,12 +253,12 @@ class Tracker:
 
         # if no feature is detected return None
         if features is None:
-            return None, None
+            return None, tip_area
 
         features = np.squeeze(features, axis=1)
 
-        circle_kernel = cv.getStructuringElement(cv.MORPH_RECT, (7, 7))  # basically a 7x7 matrix of 1s
-        filtered_area = cv.filter2D(mask, cv.CV_16S, circle_kernel)
+        circle_kernel = cv.getStructuringElement(cv.MORPH_RECT, (11, 11))  # basically a 7x7 matrix of 1s
+        filtered_area = cv.filter2D(mask, cv.CV_16S, circle_kernel, anchor=(5,0))
         # brightest -> less dark around the candidate -> high likelihood of being the tip
         # normalize the results from 0 to 255
         filtered_area = cv.normalize(filtered_area, filtered_area, alpha=0, beta=255, norm_type=cv.NORM_MINMAX,
@@ -272,7 +276,7 @@ class Tracker:
             np.copyto(rejected, rej_feat, casting="unsafe")
 
         filtered_area = cv.cvtColor(filtered_area, cv.COLOR_GRAY2BGR)
-        return features[0], filtered_area
+        return features[0]+np.array([0, 2]), tip_area
 
     def _write_info(self, img: np.ndarray) -> np.ndarray:
         text = self.text_info.splitlines()
@@ -281,4 +285,4 @@ class Tracker:
         for i in range(len(text)):
             pos += dp
             cv.putText(img, text[i], tuple(pos),
-                       cv.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 3)
+                       cv.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)

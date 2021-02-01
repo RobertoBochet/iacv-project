@@ -31,8 +31,8 @@ class Position3DEstimator(fpk.KalmanFilter):
     def predict(self, **kwargs):
         super(Position3DEstimator, self).predict(**kwargs)
 
-        if self.P > self._init_p:
-            self.reset()
+        # if self.P > self._init_p:
+        #     self.reset()
 
     @property
     def is_reset(self) -> bool:

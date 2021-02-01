@@ -9,13 +9,13 @@ class PositionSpeed3DEstimator(fpk.KalmanFilter):
     def __init__(self,
                  init_xp: Union[np.array, float] = 0.,
                  init_xs: Union[np.array, float] = 0.,
-                 init_pp: Union[np.array, float] = 1e3,
+                 init_pp: Union[np.array, float] = 1.,
                  init_ps: Union[np.array, float] = .5,
                  r_p: Union[np.array, float] = 1.,
                  r_s: Union[np.array, float] = 1e3,
                  q_p: Union[np.array, float] = 1.,
                  q_s: Union[np.array, float] = 1.):
-        super().__init__(6, 6)
+        super().__init__(6, 3)
 
         init_xp = init_xp if isinstance(init_xp, np.ndarray) else np.ones((3, 1), dtype=float) * init_xp
         init_xs = init_xs if isinstance(init_xs, np.ndarray) else np.ones((3, 1), dtype=float) * init_xs
@@ -32,11 +32,11 @@ class PositionSpeed3DEstimator(fpk.KalmanFilter):
                            [0, 0, 0, 1, 0, 0],
                            [0, 0, 0, 0, 1, 0],
                            [0, 0, 0, 0, 0, 1]])
-        self.H = np.diag([1, 1, 1, 0, 0, 0])
+        self.H = np.hstack((np.eye(3), np.zeros((3,3))))
 
         r_p = r_p if isinstance(r_p, np.ndarray) else np.eye(3, dtype=float) * r_p
-        r_s = r_s if isinstance(r_s, np.ndarray) else np.eye(3, dtype=float) * r_s
-        self.R = sp.linalg.block_diag(r_p, r_s)
+        # r_s = r_s if isinstance(r_s, np.ndarray) else np.eye(3, dtype=float) * r_s
+        self.R = r_p
 
         q_p = q_p if isinstance(q_p, np.ndarray) else np.eye(3, dtype=float) * q_p
         q_s = q_s if isinstance(q_s, np.ndarray) else np.eye(3, dtype=float) * q_s
@@ -46,14 +46,16 @@ class PositionSpeed3DEstimator(fpk.KalmanFilter):
 
         self.reset()
 
+        self.test_matrix_dimensions()
+
     def reset(self):
         self.x = self._init_x
         self.P = self._init_p
         self._is_reset = True
 
     def update(self, z, **kwargs):
-        if z.size == 3:
-            z = np.hstack((np.squeeze(z), np.array([0, 0, 0])))
+        # if z.size == 3:
+        #     z = np.hstack((np.squeeze(z), np.array([0, 0, 0])))
 
         super(PositionSpeed3DEstimator, self).update(z, **kwargs)
 
@@ -63,8 +65,16 @@ class PositionSpeed3DEstimator(fpk.KalmanFilter):
         super(PositionSpeed3DEstimator, self).predict(**kwargs)
         self._is_reset = False
 
-        if np.linalg.norm(self.P) > np.linalg.norm(self._init_p):
-            self.reset()
+        # if np.linalg.norm(self.P) > np.linalg.norm(self._init_p):
+        #     self.reset()
+
+    @property
+    def pos(self):
+        return self.x[0:3]
+
+    @property
+    def vel(self):
+        return self.x[3:6]
 
     @property
     def is_reset(self) -> bool:
