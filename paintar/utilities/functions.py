@@ -110,7 +110,10 @@ def get_crop_around_limits(point: np.ndarray, size: Union[np.ndarray, int], boun
     return limits.astype(np.int)
 
 
-def crop_around(img: np.ndarray, point: np.ndarray, size: Union[np.ndarray, int]) -> tuple[np.ndarray, np.ndarray]:
+def crop_around(img: np.ndarray,
+                point: np.ndarray,
+                size: Union[np.ndarray, int],
+                clone: bool = False) -> tuple[np.ndarray, np.ndarray]:
     """
     given a point in 2D space, a size of a rectangle or a circle radius and the image
     returns the crop around the point, and the coordinate of the left-up corner
@@ -122,4 +125,9 @@ def crop_around(img: np.ndarray, point: np.ndarray, size: Union[np.ndarray, int]
     x_min = crop_limit[1, 0]
     x_max = crop_limit[1, 1]
 
-    return np.array([x_min, y_min]), img[y_min:y_max, x_min:x_max]
+    crop = np.array([x_min, y_min]), img[y_min:y_max, x_min:x_max]
+
+    if clone:
+        crop = np.copy(crop)
+
+    return crop
