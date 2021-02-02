@@ -76,3 +76,5 @@ if __name__ == "__main__":
 
         if not canvas.loop(False):
             break
+
+        cv.waitKey(1)

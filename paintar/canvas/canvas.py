@@ -26,7 +26,7 @@ class Canvas(Tracker):
         self._canvas = None
         self._limits = None
 
-        self._drawing_z_limit = 0.003
+        self._drawing_z_limit = 0.001
 
         self.limits = limits
 
@@ -89,6 +89,5 @@ class Canvas(Tracker):
             cv.circle(self._canvas, p_c, radius=self._brush_size, color=(1,), thickness=-1)
 
         cv.imshow(self._window_name, self._canvas)
-        cv.waitKey(1)
 
         return True
