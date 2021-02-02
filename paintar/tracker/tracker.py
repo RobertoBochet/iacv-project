@@ -52,8 +52,6 @@ class Tracker:
         self._aruco_tip_crop_size1 = 60
         self._aruco_tip_crop_size2 = 60
 
-        self._tip_locked = False
-
         self._db1 = None
         self._db2 = None
 
@@ -62,10 +60,10 @@ class Tracker:
         text = ""
 
         if self.status.value >= Status.ARUCO_DETECTED.value:
-            text += "tip Z: {:.4f}\n".format(float(self._estimator_tip.pos[2]))
-            text += "aruco_inc: {:.4f}\n".format(self._estimator_tip.var)
+            text += "  tip Z: {:.4f}\n".format(float(self._estimator_tip.pos[2]))
+            text += "tip inc: {:.4f}\n".format(self._estimator_tip.var)
 
-        text += "status: {}".format(self.status.name)
+        text += " status: {}".format(self.status.name)
         return text
 
     @property
@@ -123,84 +121,11 @@ class Tracker:
 
         ###### almost ARUCO_LOCKED ######
         if self.status.value >= Status.ARUCO_LOCKED.value:
-            p = ut.cart2proj(self._estimator_tip.pos)
-
-            p1 = ut.proj2cart(self._stereo_cam.cam1.m @ p)
-            p2 = ut.proj2cart(self._stereo_cam.cam2.m @ p)
-
-            img1, img2 = self._stereo_cam.retrieve()
-
-            corner1, crop1 = ut.crop_around(img1, p1, self._aruco_tip_crop_size1)
-            corner2, crop2 = ut.crop_around(img2, p2, self._aruco_tip_crop_size2)
-
-            rejected1 = np.empty(0)
-            rejected2 = np.empty(0)
-
-            tip1, crop1 = self.detect_tip_feature(crop1, rejected=rejected1)
-            tip2, crop2 = self.detect_tip_feature(crop2, rejected=rejected2)
-
-            if tip1 is not None and tip2 is not None:
-                # updates the estimation of tip position from triangulation
-                tip = self._stereo_cam.triangulate_point(ut.cart2proj(tip1 + corner1), ut.cart2proj(tip2 + corner2))
-                self._estimator_tip.update(ut.proj2cart(tip), R=self._variance_measure_feature)
-                self._tip_locked = True
-
-                if self._debug_image:
-                    cv.drawMarker(crop1, tuple(tip1.astype(np.uint)),
-                                  (0, 0, 255), markerType=cv.MARKER_CROSS, markerSize=200)
-                    cv.drawMarker(crop2, tuple(tip2.astype(np.uint)),
-                                  (0, 0, 255), markerType=cv.MARKER_CROSS, markerSize=200)
-
-                    if rejected1.size > 0 and rejected2.size > 0:
-                        for i in range(rejected1.shape[0]):
-                            cv.drawMarker(crop1, tuple(rejected1[i].astype(np.uint)),
-                                          (0, 255, 0), markerType=cv.MARKER_CROSS, markerSize=20)
-                        for i in range(rejected2.shape[0]):
-                            cv.drawMarker(crop2, tuple(rejected2[i].astype(np.uint)),
-                                          (0, 255, 0), markerType=cv.MARKER_CROSS, markerSize=20)
-
-            if self._debug_image:
-                crop_res = (250, 250)
-                self._db1[0:crop_res[0], 0:crop_res[1]] = cv.resize(crop1, crop_res, cv.INTER_NEAREST)
-                self._db2[0:crop_res[0], 0:crop_res[1]] = cv.resize(crop2, crop_res, cv.INTER_NEAREST)
+            self._looking_for_tip()
 
         ###### almost TIP_LOCKED ######
         if self.status.value >= Status.TIP_LOCKED.value:
-            # project the direct (ie not through aruco) tip estimation. x is in world (sheet) reference frame
-            p1 = ut.proj2cart(self._stereo_cam.cam1.m @ ut.cart2proj(self._estimator_tip.pos))
-            p2 = ut.proj2cart(self._stereo_cam.cam2.m @ ut.cart2proj(self._estimator_tip.pos))
-
-            img1, img2 = self._stereo_cam.retrieve()
-
-            corner1, crop1 = ut.crop_around(img1, p1, self._aruco_tip_crop_size1, clone=True)
-            corner2, crop2 = ut.crop_around(img2, p2, self._aruco_tip_crop_size2, clone=True)
-
-            rejected1 = np.empty(0)
-            rejected2 = np.empty(0)
-
-            tip1, crop1 = self.detect_tip_feature(crop1, rejected=rejected1)
-            tip2, crop2 = self.detect_tip_feature(crop2, rejected=rejected2)
-
-            # updates the estimation of tip position from triangulation
-            tip = self._stereo_cam.triangulate_point(ut.cart2proj(tip1 + corner1), ut.cart2proj(tip2 + corner2))
-            self._estimator_tip.update(ut.proj2cart(tip), R=0.001)
-
-            if self._debug_image:
-                cv.drawMarker(crop1, tuple(tip1.astype(np.uint)),
-                              (0, 0, 255), markerType=cv.MARKER_CROSS, markerSize=20)
-                cv.drawMarker(crop2, tuple(tip2.astype(np.uint)),
-                              (0, 0, 255), markerType=cv.MARKER_CROSS, markerSize=20)
-
-                if rejected1.size > 0 and rejected2.size > 0:
-                    for i in range(rejected1.shape[0]):
-                        cv.drawMarker(crop1, tuple(rejected1[i].astype(np.uint)),
-                                      (0, 255, 0), markerType=cv.MARKER_CROSS, markerSize=20)
-                    for i in range(rejected2.shape[0]):
-                        cv.drawMarker(crop2, tuple(rejected2[i].astype(np.uint)),
-                                      (0, 255, 0), markerType=cv.MARKER_CROSS, markerSize=20)
-
-                self._db1[0:250, 0:250] = cv.resize(crop1, (250, 250))
-                self._db2[0:250, 0:250] = cv.resize(crop2, (250, 250))
+            pass
 
         if self._debug_image:
             img = np.concatenate((self._db1, self._db2), axis=1)
@@ -234,14 +159,54 @@ class Tracker:
                 cv.drawMarker(self._db2, tuple(p2.reshape(2).astype(np.uint)),
                               (0, 255, 0), markerType=cv.MARKER_CROSS, markerSize=20)
 
-    def detect_tip_feature(self, tip_area: np.ndarray, rejected: np.ndarray = None) -> tuple[
-        Union[np.ndarray, None], Union[np.ndarray, None]]:
+    def _looking_for_tip(self):
+        p = ut.cart2proj(self._estimator_tip.pos)
+
+        p1 = ut.proj2cart(self._stereo_cam.cam1.m @ p)
+        p2 = ut.proj2cart(self._stereo_cam.cam2.m @ p)
+
+        img1, img2 = self._stereo_cam.retrieve()
+
+        corner1, crop1 = ut.crop_around(img1, p1, self._aruco_tip_crop_size1, clone=True)
+        corner2, crop2 = ut.crop_around(img2, p2, self._aruco_tip_crop_size2, clone=True)
+
+        rejected1 = np.empty(0)
+        rejected2 = np.empty(0)
+
+        tip1 = self._detect_tip_feature(crop1, rejected=rejected1)
+        tip2 = self._detect_tip_feature(crop2, rejected=rejected2)
+
+        if tip1 is not None and tip2 is not None:
+            # updates the estimation of tip position from triangulation
+            tip = self._stereo_cam.triangulate_point(ut.cart2proj(tip1 + corner1), ut.cart2proj(tip2 + corner2))
+            self._estimator_tip.update(ut.proj2cart(tip), R=self._variance_measure_feature)
+
+            if self._debug_image:
+                cv.drawMarker(crop1, tuple(tip1.astype(np.uint)),
+                              (0, 0, 255), markerType=cv.MARKER_CROSS, markerSize=200)
+                cv.drawMarker(crop2, tuple(tip2.astype(np.uint)),
+                              (0, 0, 255), markerType=cv.MARKER_CROSS, markerSize=200)
+
+                if rejected1.size > 0 and rejected2.size > 0:
+                    for i in range(rejected1.shape[0]):
+                        cv.drawMarker(crop1, tuple(rejected1[i].astype(np.uint)),
+                                      (0, 255, 0), markerType=cv.MARKER_CROSS, markerSize=20)
+                    for i in range(rejected2.shape[0]):
+                        cv.drawMarker(crop2, tuple(rejected2[i].astype(np.uint)),
+                                      (0, 255, 0), markerType=cv.MARKER_CROSS, markerSize=20)
+
+        if self._debug_image:
+            crop_res = (250, 250)
+            self._db1[0:crop_res[0], 0:crop_res[1]] = cv.resize(crop1, crop_res, cv.INTER_NEAREST)
+            self._db2[0:crop_res[0], 0:crop_res[1]] = cv.resize(crop2, crop_res, cv.INTER_NEAREST)
+
+    def _detect_tip_feature(self, tip_area: np.ndarray, rejected: np.ndarray = None) -> Union[np.ndarray, None]:
 
         hsv = cv.cvtColor(tip_area, cv.COLOR_BGR2HSV)
         mask = cv.inRange(hsv, np.array([0, 0, 0]), np.array([180, 255, 40]))
         mask = cv.bitwise_not(mask)
-        maskRGB = cv.cvtColor(mask, cv.COLOR_GRAY2RGB)  # needed by bitwise_or
-        tip_area = cv.bitwise_or(maskRGB, tip_area)  # replace everthing brighter than V = 40 with pure white
+        mask_rgb = cv.cvtColor(mask, cv.COLOR_GRAY2RGB)  # needed by bitwise_or
+        cv.bitwise_or(mask_rgb, tip_area, tip_area)  # replace everything brighter than V = 40 with pure white
 
         tip_area_gray = cv.cvtColor(tip_area, cv.COLOR_BGR2GRAY)  # needed by shi-tomasi detector
         features = cv.goodFeaturesToTrack(tip_area_gray, 3, .3,
@@ -249,7 +214,7 @@ class Tracker:
 
         # if no feature is detected return None
         if features is None:
-            return None, tip_area
+            return None
 
         features = np.squeeze(features, axis=1)
 
@@ -271,10 +236,13 @@ class Tracker:
             rejected.resize(rej_feat.shape, refcheck=False)
             np.copyto(rejected, rej_feat, casting="unsafe")
 
-        filtered_area = cv.cvtColor(filtered_area, cv.COLOR_GRAY2BGR)
-        return features[0] + np.array([0, 2]), tip_area
+        # filtered_area = cv.cvtColor(filtered_area, cv.COLOR_GRAY2BGR)
 
-    def _write_info(self, img: np.ndarray) -> np.ndarray:
+        tip = features[0] + np.array([0, 2])
+
+        return tip
+
+    def _write_info(self, img: np.ndarray):
         text = self.text_info.splitlines()
         dp = np.array([0, 40])
         pos = np.array([0, img.shape[0]]) + np.array([5, -5]) - dp * len(text)
