@@ -27,7 +27,7 @@ class PositionSpeed3DEstimator(fpk.KalmanFilter):
 
         self.F = np.array([[1, 0, 0, 1, 0, 0],
                            [0, 1, 0, 0, 1, 0],
-                           [0, 0, 1, 0, 0, 1],
+                           [0, 0, 1, 0, 0, 0],
                            [0, 0, 0, 1, 0, 0],
                            [0, 0, 0, 0, 1, 0],
                            [0, 0, 0, 0, 0, 1]])

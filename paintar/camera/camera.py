@@ -180,14 +180,14 @@ class Camera(cv.VideoCapture):
         if aruco is None:
             return None
 
-        r, t, _ = cv.aruco.estimatePoseSingleMarkers([aruco], marker_size, self._k, self._dist)
+        r, t, _ = cv.aruco.estimatePoseSingleMarkers([aruco], marker_size, self._k)
 
         if debug_buffer is not None:
             if debug_buffer.size == 1:
                 _, img = self.retrieve()
                 debug_buffer.resize(img.shape, refcheck=False)
                 np.copyto(debug_buffer, img, casting="unsafe")
-            cv.aruco.drawAxis(debug_buffer, self._k, self._dist, r, t, 2 * marker_size)
+            cv.aruco.drawAxis(debug_buffer, self._k, r, t, 2 * marker_size)
 
         r, _ = cv.Rodrigues(r[0])
         t = t.reshape(3)
