@@ -1,12 +1,8 @@
 import enum
 from typing import Union
 
-try:
-    import cv2.cv2 as cv
-except ModuleNotFoundError:
-    import cv2 as cv
-
 import numpy as np
+from .._cv import cv
 
 from .estimators import PositionSpeed3DEstimator
 from .. import utilities as ut
@@ -85,7 +81,11 @@ class Tracker:
 
         return Status.CAMERA_NO_CALIBRATE
 
-    def loop(self, grab: bool = True):
+    @property
+    def tip(self) -> np.ndarray:
+        return self._estimator_tip.pos
+
+    def loop(self, grab: bool = True) -> bool:
         if grab:
             self._stereo_cam.grab()
 
@@ -133,7 +133,7 @@ class Tracker:
             self._write_info(img)
 
             cv.imshow("debug", img)
-            cv.waitKey(0)
+            cv.waitKey(1)
 
             return not cv.getWindowProperty("debug", cv.WND_PROP_VISIBLE) < 1
 

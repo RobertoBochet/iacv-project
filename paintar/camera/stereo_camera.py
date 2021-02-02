@@ -1,9 +1,6 @@
 from typing import Union
 
-try:
-    import cv2.cv2 as cv
-except ModuleNotFoundError:
-    import cv2 as cv
+from .._cv import cv
 
 import numpy as np
 

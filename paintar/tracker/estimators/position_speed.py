@@ -63,8 +63,8 @@ class PositionSpeed3DEstimator(fpk.KalmanFilter):
 
         super(PositionSpeed3DEstimator, self).predict(**kwargs)
 
-        # if self.var > self._init_var:
-        #     self.reset()
+        if self.var > self._init_var:
+            self.reset()
 
     @property
     def pos(self):

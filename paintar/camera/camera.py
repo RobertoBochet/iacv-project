@@ -1,6 +1,6 @@
 from typing import Union
 
-import cv2 as cv
+from .._cv import cv
 import numpy as np
 
 from ..utilities import Chessboard, forge_isometry, forge_projective_matrix, crop_around
