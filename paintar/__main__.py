@@ -54,7 +54,8 @@ if __name__ == "__main__":
     tr = Tracker(stereo_cam,
                  aruco_dict=ARUCO_DICT,
                  aruco_pen_size=ARUCO_PEN_SIZE,
-                 aruco_pen_tip_offset=ARUCO_PEN_TIP_OFFSET)
+                 aruco_pen_tip_offset=ARUCO_PEN_TIP_OFFSET,
+                 debug_image=True)
 
     for _ in range(SKIP_FRAMES):
         stereo_cam.grab()
