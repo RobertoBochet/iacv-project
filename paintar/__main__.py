@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 import time
 from pathlib import Path
-
-import cv2 as cv
+from ._cv import cv
 import numpy as np
 
+from paintar.canvas import Canvas
 from . import utilities as ut
 from .camera import Camera, StereoCamera
 from .tracker import Tracker
@@ -57,11 +57,19 @@ if __name__ == "__main__":
                  aruco_pen_tip_offset=ARUCO_PEN_TIP_OFFSET,
                  debug_image=True)
 
+    canvas = Canvas(stereo_cam,
+                    aruco_dict=ARUCO_DICT,
+                    aruco_pen_size=ARUCO_PEN_SIZE,
+                    aruco_pen_tip_offset=ARUCO_PEN_TIP_OFFSET,
+                    debug_image=True,
+                    size=np.array([500, 500]),
+                    brush_size=5)
+
     for _ in range(SKIP_FRAMES):
         stereo_cam.grab()
 
     stereo_cam.grab()
-    cv.namedWindow("main", cv.WINDOW_NORMAL)    # needed when the output image is larger than the screen
+    cv.namedWindow("main", cv.WINDOW_NORMAL)  # needed when the output image is larger than the screen
 
     while True:
         t_i = time.time()
@@ -69,5 +77,5 @@ if __name__ == "__main__":
         if not stereo_cam.grab():
             break
 
-        if not tr.loop(False):
+        if not canvas.loop(False):
             break
