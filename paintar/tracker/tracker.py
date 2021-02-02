@@ -1,4 +1,5 @@
 import enum
+import time
 from typing import Union
 
 import numpy as np
@@ -48,6 +49,9 @@ class Tracker:
         self._aruco_tip_crop_size1 = 60
         self._aruco_tip_crop_size2 = 60
 
+        self._fps_last_frame = 0.
+        self._fps_time = np.zeros((10,))
+
         self._db1 = None
         self._db2 = None
 
@@ -60,10 +64,11 @@ class Tracker:
         text = ""
 
         if self.status.value >= Status.ARUCO_DETECTED.value:
-            text += "  tip Z: {:.4f}\n".format(float(self._estimator_tip.pos[2]))
+            text += "  tip Z: {:+.4f}\n".format(float(self._estimator_tip.pos[2]))
             text += "tip inc: {:.4f}\n".format(self._estimator_tip.var)
 
-        text += " status: {}".format(self.status.name)
+        text += " status: {}\n".format(self.status.name)
+        text += "    fps: {:.1f}".format(self.fps)
         return text
 
     @property
@@ -88,6 +93,10 @@ class Tracker:
     @property
     def tip(self) -> np.ndarray:
         return self._estimator_tip.pos
+
+    @property
+    def fps(self) -> float:
+        return 1 / self._fps_time.mean()
 
     def loop(self, grab: bool = True) -> bool:
         if grab:
@@ -131,6 +140,8 @@ class Tracker:
         if self.status.value >= Status.TIP_LOCKED.value:
             pass
 
+        self._update_fps()
+
         if self._debug_image:
             if cv.getWindowProperty(self._debug_window_name, cv.WND_PROP_VISIBLE) < 1:
                 return False
@@ -140,7 +151,6 @@ class Tracker:
             self._write_info(img)
 
             cv.imshow(self._debug_window_name, img)
-            cv.waitKey(1)
 
         return True
 
@@ -255,3 +265,9 @@ class Tracker:
             pos += dp
             cv.putText(img, text[i], tuple(pos),
                        cv.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
+
+    def _update_fps(self):
+        self._fps_time = np.roll(self._fps_time, 1)
+        t = time.time()
+        self._fps_time[0] = t - self._fps_last_frame
+        self._fps_last_frame = t
