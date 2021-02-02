@@ -51,6 +51,10 @@ class Tracker:
         self._db1 = None
         self._db2 = None
 
+        self._debug_window_name = "debug"
+        if self._debug_image:
+            cv.namedWindow(self._debug_window_name, cv.WINDOW_NORMAL)
+
     @property
     def text_info(self) -> str:
         text = ""
@@ -128,14 +132,15 @@ class Tracker:
             pass
 
         if self._debug_image:
+            if cv.getWindowProperty(self._debug_window_name, cv.WND_PROP_VISIBLE) < 1:
+                return False
+
             img = np.concatenate((self._db1, self._db2), axis=1)
 
             self._write_info(img)
 
-            cv.imshow("debug", img)
+            cv.imshow(self._debug_window_name, img)
             cv.waitKey(1)
-
-            return not cv.getWindowProperty("debug", cv.WND_PROP_VISIBLE) < 1
 
         return True
 

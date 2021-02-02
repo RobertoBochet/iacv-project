@@ -21,6 +21,8 @@ class Canvas(Tracker):
         self._size = size
         self._brush_size = brush_size
 
+        self._window_name = "canvas"
+
         self._canvas = None
         self._limits = None
 
@@ -29,6 +31,9 @@ class Canvas(Tracker):
         self.limits = limits
 
         self.clear()
+
+        cv.namedWindow(self._window_name, cv.WINDOW_NORMAL)
+        cv.imshow(self._window_name, self._canvas)
 
     @property
     def limits(self) -> np.ndarray:
@@ -42,9 +47,7 @@ class Canvas(Tracker):
         else:
             self._limits = np.vstack((np.array([0, 0]), limits))
 
-        # resets t
-        if "t" in self.__dict__:
-            del self.__dict__["t"]
+        self._reset_t()
 
     @cached_property
     def t(self) -> np.ndarray:
@@ -57,6 +60,10 @@ class Canvas(Tracker):
             )),
             np.array([0, 0, 1])))
 
+    def _reset_t(self):
+        if "t" in self.__dict__:
+            del self.__dict__["t"]
+
     @property
     def is_drawing(self):
         return self.status is Status.TIP_LOCKED and self._estimator_tip.pos[2] < self._drawing_z_limit
@@ -66,6 +73,9 @@ class Canvas(Tracker):
 
     def loop(self, grab: bool = True) -> bool:
         super(Canvas, self).loop(grab)
+
+        if cv.getWindowProperty(self._window_name, cv.WND_PROP_VISIBLE) < 1:
+            return False
 
         if self.is_drawing:
             p = cart2proj(self.tip[0:2])
@@ -78,7 +88,7 @@ class Canvas(Tracker):
 
             cv.circle(self._canvas, p_c, radius=self._brush_size, color=(1,), thickness=-1)
 
-        cv.imshow("canvas", self._canvas)
+        cv.imshow(self._window_name, self._canvas)
         cv.waitKey(1)
 
-        return not cv.getWindowProperty("canvas", cv.WND_PROP_VISIBLE) < 1
+        return True
