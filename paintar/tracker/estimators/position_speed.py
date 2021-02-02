@@ -12,7 +12,6 @@ class PositionSpeed3DEstimator(fpk.KalmanFilter):
                  init_pp: Union[np.array, float] = 1.,
                  init_ps: Union[np.array, float] = .5,
                  r_p: Union[np.array, float] = 1.,
-                 r_s: Union[np.array, float] = 1e3,
                  q_p: Union[np.array, float] = 1.,
                  q_s: Union[np.array, float] = 1.):
         super().__init__(6, 3)
@@ -32,11 +31,9 @@ class PositionSpeed3DEstimator(fpk.KalmanFilter):
                            [0, 0, 0, 1, 0, 0],
                            [0, 0, 0, 0, 1, 0],
                            [0, 0, 0, 0, 0, 1]])
-        self.H = np.hstack((np.eye(3), np.zeros((3,3))))
+        self.H = np.hstack((np.eye(3), np.zeros((3, 3))))
 
-        r_p = r_p if isinstance(r_p, np.ndarray) else np.eye(3, dtype=float) * r_p
-        # r_s = r_s if isinstance(r_s, np.ndarray) else np.eye(3, dtype=float) * r_s
-        self.R = r_p
+        self.R = r_p if isinstance(r_p, np.ndarray) else np.eye(3, dtype=float) * r_p
 
         q_p = q_p if isinstance(q_p, np.ndarray) else np.eye(3, dtype=float) * q_p
         q_s = q_s if isinstance(q_s, np.ndarray) else np.eye(3, dtype=float) * q_s
@@ -46,6 +43,8 @@ class PositionSpeed3DEstimator(fpk.KalmanFilter):
 
         self.reset()
 
+        self._init_var = self.var
+
         self.test_matrix_dimensions()
 
     def reset(self):
@@ -54,18 +53,17 @@ class PositionSpeed3DEstimator(fpk.KalmanFilter):
         self._is_reset = True
 
     def update(self, z, **kwargs):
-        # if z.size == 3:
-        #     z = np.hstack((np.squeeze(z), np.array([0, 0, 0])))
-
         super(PositionSpeed3DEstimator, self).update(z, **kwargs)
 
         self._is_reset = False
 
     def predict(self, **kwargs):
-        super(PositionSpeed3DEstimator, self).predict(**kwargs)
-        self._is_reset = False
+        if self._is_reset:
+            return
 
-        # if np.linalg.norm(self.P) > np.linalg.norm(self._init_p):
+        super(PositionSpeed3DEstimator, self).predict(**kwargs)
+
+        # if self.var > self._init_var:
         #     self.reset()
 
     @property
@@ -79,3 +77,7 @@ class PositionSpeed3DEstimator(fpk.KalmanFilter):
     @property
     def is_reset(self) -> bool:
         return self._is_reset
+
+    @property
+    def var(self) -> float:
+        return self.P[0:3, 0:3].trace() / 3
