@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import time
 from pathlib import Path
+
+from paintar.syncer import synchronize, estimate_delay
 from ._cv import cv
 import numpy as np
 
@@ -43,19 +45,30 @@ if __name__ == "__main__":
 
     cam1 = Camera(PATH_VIDEO_1.as_posix(), K1, DIST1, R1, T1)
     cam2 = Camera(PATH_VIDEO_2.as_posix(), K2, DIST2, R2, T2)
-    # cam1 = Camera(PATH_VIDEO_AR.as_posix(), K1, DIST1)
 
     stereo_cam = StereoCamera(cam1, cam2)
+
+    # to test de-sync
+    #for _ in range(40):
+    #    cam1.grab()
+
+    dt = estimate_delay(stereo_cam,
+                        aruco_dict=ARUCO_DICT,
+                        aruco_id=ARUCO_PEN_ID,
+                        max_delay=3.,
+                        plots=True)
+
+    cam1.release()
+    cam2.release()
+
+    cam1.open(PATH_VIDEO_1.as_posix())
+    cam2.open(PATH_VIDEO_2.as_posix())
+
+    synchronize(stereo_cam, dt)
 
     # while True:
     #     if stereo_cam.calibrate_geometry(chessboard):
     #         break
-
-    tr = Tracker(stereo_cam,
-                 aruco_dict=ARUCO_DICT,
-                 aruco_pen_size=ARUCO_PEN_SIZE,
-                 aruco_pen_tip_offset=ARUCO_PEN_TIP_OFFSET,
-                 debug_image=True)
 
     canvas = Canvas(stereo_cam,
                     aruco_dict=ARUCO_DICT,
