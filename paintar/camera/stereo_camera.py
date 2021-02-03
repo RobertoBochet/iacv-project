@@ -94,23 +94,12 @@ class StereoCamera:
         assert len(x2) == len(x1), "Number of points does not match."
         return np.array([self.triangulate_point(x[0], x[1]) for x in zip(x1, x2)])
 
-    # def triangulate_point(self, x1, x2):
-    #     """
-    #     given two points from the two cam in P^2 returns the corresponding point in P^3
-    #     """
-    #     m = np.zeros([3 * 2, 4 + 2])
-    #     for i, (x, p) in enumerate([(x1, self._cam1.m), (x2, self._cam2.m)]):
-    #         m[3 * i:3 * i + 3, :4] = p
-    #         m[3 * i:3 * i + 3, 4 + i] = -x
-    #     v = np.linalg.svd(m)[-1]
-    #     x = v[-1, :4]
-    #     return x / x[3]
-
     def triangulate_point(self, x1, x2):
         x1 = proj2cart(x1)
         x2 = proj2cart(x2)
-        point4d = cv.triangulatePoints(self._cam1.m.astype(np.float), self._cam2.m.astype(np.float), x1.reshape(2,1).astype(np.float), x2.reshape(2,1).astype(np.float))
-        return point4d.reshape(4)/point4d[3]
+        point4d = cv.triangulatePoints(self._cam1.m.astype(np.float), self._cam2.m.astype(np.float),
+                                       x1.reshape(2, 1).astype(np.float), x2.reshape(2, 1).astype(np.float))
+        return point4d.reshape(4) / point4d[3]
 
     def triangulate_aruco(self, aruco_id: int, aruco_size: float,
                           grab: bool = True,

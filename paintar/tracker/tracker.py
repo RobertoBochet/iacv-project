@@ -38,9 +38,9 @@ class Tracker:
         self._debug_image = debug_image
 
         self._variance_threshold_aruco = 0.005
-        self._variance_threshold_feature = 0.001
-        self._variance_measure_aruco = 0.01
-        self._variance_measure_feature = 0.001
+        self._variance_threshold_feature = 0.003
+        self._variance_measure_aruco = 0.005
+        self._variance_measure_feature = 0.0005
 
         self._estimator_tip = PositionSpeed3DEstimator(r_p=self._variance_measure_aruco,
                                                        q_p=0.001,
