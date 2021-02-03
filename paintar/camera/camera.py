@@ -20,6 +20,10 @@ class Camera(cv.VideoCapture):
         self._r = r
         self._t = t
 
+        map_x, map_y = cv.initUndistortRectifyMap(self._k, self._dist, np.eye(3), self._k, (1280,720), cv.CV_16SC2)
+        self._ur_map_x = map_x
+        self._ur_map_y = map_y
+
         self._frame_size = np.array([int(self.get(cv.CAP_PROP_FRAME_HEIGHT)),
                                      int(self.get(cv.CAP_PROP_FRAME_WIDTH))], dtype=int)
 
@@ -79,10 +83,9 @@ class Camera(cv.VideoCapture):
         return self._frame_size
 
     def retrieve(self, clone: bool = False, *args, **kwargs):
-        _, img = super(Camera, self).retrieve(*args, **kwargs)
-
         if not self._frame_in_buffer:
-            self._frame_buffer = cv.undistort(img, self._k, self._dist)
+            _, img = super(Camera, self).retrieve(*args, **kwargs)
+            self._frame_buffer = cv.remap(img, self._ur_map_x, self._ur_map_y, cv.INTER_LINEAR);
             self._frame_in_buffer = True
 
         if clone:
