@@ -1,3 +1,4 @@
+from functools import cached_property
 from typing import Union
 
 from .._cv import cv
@@ -13,9 +14,6 @@ class StereoCamera:
         self._cam1 = cam1
         self._cam2 = cam2
 
-        self._e = None
-        self._f = None
-
     @property
     def cam1(self) -> Camera:
         return self._cam1
@@ -24,9 +22,27 @@ class StereoCamera:
     def cam2(self) -> Camera:
         return self._cam2
 
-    @property
+    @cached_property
+    def e(self) -> Camera:
+        """
+        returns the essential matrix
+        """
+        r = self._cam2.r @ self._cam1.r.T
+        t = self._cam2.t - r @ self._cam1.t
+
+        return np.array([
+            [0, -t[2], t[1]],
+            [t[2], 0, -t[0]],
+            [-t[1], t[0], 0],
+        ]) @ r
+
+    @cached_property
     def f(self) -> Camera:
-        raise NotImplemented
+        """
+        returns the fundamental matrix
+        the same point with the images projection p1, p2 satisfy the relation p2^T * F * p1
+        """
+        return np.linalg.inv(self._cam2.k.T) @ self.e @ np.linalg.inv(self._cam1.k)
 
     @property
     def is_calibrated(self) -> bool:
