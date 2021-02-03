@@ -12,8 +12,8 @@ from .camera import Camera, StereoCamera
 from .tracker import Tracker
 
 PATH_VIDEO = Path("./video")
-PATH_VIDEO_1 = PATH_VIDEO / "video1.avi"
-PATH_VIDEO_2 = PATH_VIDEO / "video2.avi"
+PATH_VIDEO_1 = PATH_VIDEO / "video1_2.avi"
+PATH_VIDEO_2 = PATH_VIDEO / "video2_2.avi"
 PATH_VIDEO_AR = PATH_VIDEO / "ar.mp4"
 
 SKIP_FRAMES = 30 * 10 * 0
