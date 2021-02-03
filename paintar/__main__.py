@@ -76,7 +76,7 @@ if __name__ == "__main__":
                     aruco_pen_tip_offset=ARUCO_PEN_TIP_OFFSET,
                     debug_image=True,
                     size=np.array([500, 500]),
-                    brush_size=1)
+                    brush_size=2)
 
     for _ in range(SKIP_FRAMES):
         stereo_cam.grab()

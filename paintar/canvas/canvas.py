@@ -90,7 +90,7 @@ class Canvas(Tracker):
             p_c = tuple(p_c.astype(int))
 
             if self._old_pos is not None:
-                cv.line(self._canvas, self._old_pos, p_c, (255))
+                cv.line(self._canvas, self._old_pos, p_c, (255), thickness=self._brush_size)
             else:
                 cv.circle(self._canvas, p_c, radius=self._brush_size, color=(1,), thickness=-1)
 
