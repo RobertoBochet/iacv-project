@@ -1,4 +1,6 @@
 from functools import cached_property
+from typing import Union
+
 import numpy as np
 from .._cv import cv
 
@@ -12,10 +14,22 @@ class Canvas(Tracker):
                  stereo_cam: StereoCamera,
                  size: np.ndarray = np.array([100, 100]),
                  limits: np.ndarray = np.array([.5, .5]),
+                 drawing_threshold: Union[float, tuple[float, float]] = 0.001,
                  brush_size: int = 0,
                  interpolate: bool = False,
                  *args, **kwargs):
+        """
+        :param stereo_cam: A StereoCamera instance
+        :param size: The canvas' size in pixels
+        :param limits:
+        :param drawing_threshold:
+        :param brush_size:
+        :param interpolate:
+        """
         super(Canvas, self).__init__(stereo_cam, *args, **kwargs)
+
+        self._drawing_threshold = drawing_threshold if isinstance(drawing_threshold, tuple) \
+            else (drawing_threshold, drawing_threshold)
 
         self._interpolate = interpolate
         self._size = size
@@ -25,8 +39,7 @@ class Canvas(Tracker):
 
         self._canvas = None
         self._limits = None
-
-        self._drawing_z_limit = 0.001
+        self._is_drawing = False
 
         self.limits = limits
 
@@ -69,7 +82,17 @@ class Canvas(Tracker):
 
     @property
     def is_drawing(self):
-        return self.status is Status.TIP_LOCKED and self._estimator_tip.pos[2] < self._drawing_z_limit
+        if self.status is not Status.TIP_LOCKED:
+            return False
+
+        z = self._estimator_tip.pos[2]
+
+        if self._is_drawing:
+            self._is_drawing = z <= self._drawing_threshold[1]
+        else:
+            self._is_drawing = z <= self._drawing_threshold[0]
+
+        return self._is_drawing
 
     def clear(self):
         self._canvas = np.zeros(tuple(self._size))
