@@ -30,6 +30,8 @@ class Canvas(Tracker):
 
         self.limits = limits
 
+        self._old_pos = None
+
         self.clear()
 
         cv.namedWindow(self._window_name, cv.WINDOW_NORMAL)
@@ -87,7 +89,14 @@ class Canvas(Tracker):
             p_c = np.around(p_c)
             p_c = tuple(p_c.astype(int))
 
-            cv.circle(self._canvas, p_c, radius=self._brush_size, color=(1,), thickness=-1)
+            if self._old_pos is not None:
+                cv.line(self._canvas, self._old_pos, p_c, (255))
+            else:
+                cv.circle(self._canvas, p_c, radius=self._brush_size, color=(1,), thickness=-1)
+
+            self._old_pos = p_c
+        else:
+            self._old_pos = None
 
         cv.imshow(self._window_name, self._canvas)
 
