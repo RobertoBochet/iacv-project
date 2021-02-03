@@ -58,6 +58,7 @@ class Tracker:
         self._debug_window_name = "debug"
         if self._debug_image:
             cv.namedWindow(self._debug_window_name, cv.WINDOW_NORMAL)
+            cv.resizeWindow(self._debug_window_name, 1920, 720)
 
     @property
     def text_info(self) -> str:

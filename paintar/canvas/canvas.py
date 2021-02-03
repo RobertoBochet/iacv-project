@@ -33,6 +33,7 @@ class Canvas(Tracker):
         self.clear()
 
         cv.namedWindow(self._window_name, cv.WINDOW_NORMAL)
+        cv.resizeWindow(self._window_name, size[0], size[1])
         cv.imshow(self._window_name, self._canvas)
 
     @property
