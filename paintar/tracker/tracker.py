@@ -43,8 +43,8 @@ class Tracker:
         self._variance_measure_feature = 0.0005
 
         self._estimator_tip = PositionSpeed3DEstimator(r_p=self._variance_measure_aruco,
-                                                       q_p=0.001,
-                                                       q_s=.0001)
+                                                       q_p=0.0001,
+                                                       q_s=.00001)
 
         self._aruco_tip_crop_size1 = 60
         self._aruco_tip_crop_size2 = 60
