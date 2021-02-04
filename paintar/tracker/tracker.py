@@ -100,6 +100,11 @@ class Tracker:
         return 1 / self._fps_time.mean()
 
     def loop(self, grab: bool = True) -> bool:
+        if self._debug_image and cv.getWindowProperty(self._debug_window_name, cv.WND_PROP_VISIBLE) < 1:
+            return False
+
+        self._update_fps()
+
         if grab:
             self._stereo_cam.grab()
 
@@ -111,9 +116,6 @@ class Tracker:
 
         self._estimator_tip.predict()
 
-        if self._debug_image:
-            draw_axis(self._db1, self._stereo_cam.cam1.m)
-            draw_axis(self._db2, self._stereo_cam.cam2.m)
 
         ###### almost NO_LOCK ######
         if Status.NO_LOCK.value <= self.status.value < Status.TIP_LOCKED.value:
@@ -121,17 +123,7 @@ class Tracker:
 
         ###### almost ARUCO_DETECTED ######
         if self.status.value >= Status.ARUCO_DETECTED.value:
-
-            if self._debug_image:
-                p = ut.cart2proj(self._estimator_tip.x[0:3])
-
-                p1 = ut.proj2cart(self._stereo_cam.cam1.m @ p)
-                p2 = ut.proj2cart(self._stereo_cam.cam2.m @ p)
-
-                cv.drawMarker(self._db1, tuple(p1.reshape(2).astype(np.uint)),
-                              (0, 0, 255), markerType=cv.MARKER_CROSS, markerSize=20)
-                cv.drawMarker(self._db2, tuple(p2.reshape(2).astype(np.uint)),
-                              (0, 0, 255), markerType=cv.MARKER_CROSS, markerSize=20)
+            pass
 
         ###### almost ARUCO_LOCKED ######
         if self.status.value >= Status.ARUCO_LOCKED.value:
@@ -141,14 +133,10 @@ class Tracker:
         if self.status.value >= Status.TIP_LOCKED.value:
             pass
 
-        self._update_fps()
-
         if self._debug_image:
-            if cv.getWindowProperty(self._debug_window_name, cv.WND_PROP_VISIBLE) < 1:
-                return False
+            self._draw_debug_image()
 
             img = np.concatenate((self._db1, self._db2), axis=1)
-
             self._write_info(img)
 
             cv.imshow(self._debug_window_name, img)
@@ -257,6 +245,23 @@ class Tracker:
         tip = features[0] + np.array([0, 2])
 
         return tip
+
+    def _draw_debug_image(self):
+        # draws the world frame
+        draw_axis(self._db1, self._stereo_cam.cam1.m)
+        draw_axis(self._db2, self._stereo_cam.cam2.m)
+
+        # draws the estimation of the tip position
+        p = ut.cart2proj(self._estimator_tip.pos)
+
+        p1 = ut.proj2cart(self._stereo_cam.cam1.m @ p)
+        p2 = ut.proj2cart(self._stereo_cam.cam2.m @ p)
+
+        p1 = tuple(p1.reshape(2).astype(np.uint))
+        p2 = tuple(p2.reshape(2).astype(np.uint))
+
+        cv.drawMarker(self._db1, p1, (0, 0, 255), markerType=cv.MARKER_CROSS, markerSize=20)
+        cv.drawMarker(self._db2, p2, (0, 0, 255), markerType=cv.MARKER_CROSS, markerSize=20)
 
     def _write_info(self, img: np.ndarray):
         text = self.text_info.splitlines()
