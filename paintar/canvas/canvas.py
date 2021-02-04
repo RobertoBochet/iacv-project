@@ -21,8 +21,8 @@ class Canvas(Tracker):
                  drawing_threshold: Union[float, tuple[float, float]] = 0.001,
                  brush_size: int = 0,
                  interpolate: bool = False,
-                 plots: bool = False,
-                 projects: bool = False,
+                 plot: bool = False,
+                 project: bool = False,
                  **kwargs):
         """
         :param stereo_cam: A `StereoCamera` instance
@@ -36,8 +36,8 @@ class Canvas(Tracker):
             if they are provided two value, these are used as hysteresis cycle parameters
         :param brush_size: The size in pixels of the brush
         :param interpolate: Defines if the points will be interpolated by lines
-        :param plots: Defines if the canvas has to be plotted on screen
-        :param projects: Defines if the canvas has to be projected on the image
+        :param plot: Defines if the canvas has to be plotted on screen
+        :param project: Defines if the canvas has to be projected on the image
         :param `**kwargs`: These arguments are given to the `Tracker` class
         """
         super(Canvas, self).__init__(stereo_cam, **kwargs)
@@ -48,8 +48,8 @@ class Canvas(Tracker):
         self._reverse_z = reverse_z
         self._resolution = resolution
         self._brush_size = brush_size
-        self._plots = plots
-        self._projects = projects
+        self._plot = plot
+        self._project = project
 
         # if only one threshold is provided uses it for both the hysteresis thresholds
         self._drawing_threshold = drawing_threshold if isinstance(drawing_threshold, tuple) \
@@ -63,13 +63,13 @@ class Canvas(Tracker):
         self.clear()
 
         self._window_name = "canvas"
-        if self._plots:
+        if self._plot:
             cv.namedWindow(self._window_name, cv.WINDOW_NORMAL)
             cv.resizeWindow(self._window_name, *self._size[::-1])
             cv.imshow(self._window_name, self._canvas)
 
         self._projection_window_name = "canvas"
-        if self._projects:
+        if self._project:
             cv.namedWindow(self._projection_window_name, cv.WINDOW_NORMAL)
             # cv.resizeWindow(self._projection_window_name, *self._size[::-1])
 
@@ -137,7 +137,7 @@ class Canvas(Tracker):
         :return: `False` if the canvas window was closed
         """
         # if the canvas window was closed, exits the loop
-        if self._plots and cv.getWindowProperty(self._window_name, cv.WND_PROP_VISIBLE) < 1:
+        if self._plot and cv.getWindowProperty(self._window_name, cv.WND_PROP_VISIBLE) < 1:
             return False
 
         super(Canvas, self).loop(grab)
@@ -160,10 +160,10 @@ class Canvas(Tracker):
         else:
             self._old_pos = None
 
-        if self._plots:
+        if self._plot:
             cv.imshow(self._window_name, self._canvas)
 
-        if self._projects:
+        if self._project:
             img1 = self._stereo_cam.cam1.retrieve(clone=True)
             a = cv.warpPerspective(self._canvas, self.p1, img1.shape[1::-1], flags=cv.INTER_NEAREST)
             img1[a == 1.] = (0, 0, 0)
@@ -171,9 +171,9 @@ class Canvas(Tracker):
 
         return True
 
-    def _draw_debug_image(self):
+    def _draw_debug_image(self) -> None:
         super(Canvas, self)._draw_debug_image()
 
         if self._t is not None:
-            draw_axis(self._db1, self._stereo_cam.cam1.m @ self._t)
-            draw_axis(self._db2, self._stereo_cam.cam2.m @ self._t)
+            draw_axis(self._db1, self._stereo_cam.cam1.m @ self._t, draw_z=False)
+            draw_axis(self._db2, self._stereo_cam.cam2.m @ self._t, draw_z=False)

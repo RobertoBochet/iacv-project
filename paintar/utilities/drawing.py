@@ -8,7 +8,7 @@ import numpy as np
 from .functions import proj2cart
 
 
-def draw_axis(img: np.ndarray, m: np.ndarray, s: float = 0.05) -> np.ndarray:
+def draw_axis(img: np.ndarray, m: np.ndarray, s: float = 0.05, draw_z: bool = True) -> np.ndarray:
     o = np.array([[0, 0, 0, 1]]).T
     x = np.array([[s, 0, 0, 1]]).T
     y = np.array([[0, s, 0, 1]]).T
@@ -21,6 +21,8 @@ def draw_axis(img: np.ndarray, m: np.ndarray, s: float = 0.05) -> np.ndarray:
 
     img = cv.line(img, p_o, p_x, (0, 0, 255), 5)
     img = cv.line(img, p_o, p_y, (0, 255, 0), 5)
-    img = cv.line(img, p_o, p_z, (255, 0, 0), 5)
+
+    if draw_z:
+        img = cv.line(img, p_o, p_z, (255, 0, 0), 5)
 
     return img
