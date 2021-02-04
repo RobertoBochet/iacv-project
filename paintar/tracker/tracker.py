@@ -169,7 +169,7 @@ class Tracker:
         p1 = ut.proj2cart(self._stereo_cam.cam1.m @ p)
         p2 = ut.proj2cart(self._stereo_cam.cam2.m @ p)
 
-        img1, img2 = self._stereo_cam.retrieve()
+        img1, img2 = self._stereo_cam.retrieve(clone=True)
 
         corner1, crop1 = ut.crop_around(img1, p1, self._aruco_tip_crop_size1, clone=True)
         corner2, crop2 = ut.crop_around(img2, p2, self._aruco_tip_crop_size2, clone=True)
