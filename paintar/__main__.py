@@ -88,10 +88,11 @@ if __name__ == "__main__":
                     t=T_CANVAS,
                     size=(200, 300),
                     resolution=1e3,
-                    drawing_threshold=(0.001, 0.002),
-                    brush_size=1,
+                    drawing_threshold=(0.001, 0.003),
+                    brush_size=3,
                     interpolate=True,
-                    plots=True)
+                    plots=True,
+                    projects=True)
 
     print(canvas.size_meters)
 

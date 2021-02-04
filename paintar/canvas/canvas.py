@@ -2,6 +2,7 @@ from functools import cached_property
 from typing import Union
 
 import numpy as np
+import scipy as sp
 
 from .._cv import cv
 
@@ -21,6 +22,7 @@ class Canvas(Tracker):
                  brush_size: int = 0,
                  interpolate: bool = False,
                  plots: bool = False,
+                 projects: bool = False,
                  **kwargs):
         """
         :param stereo_cam: A `StereoCamera` instance
@@ -35,6 +37,7 @@ class Canvas(Tracker):
         :param brush_size: The size in pixels of the brush
         :param interpolate: Defines if the points will be interpolated by lines
         :param plots: Defines if the canvas has to be plotted on screen
+        :param projects: Defines if the canvas has to be projected on the image
         :param `**kwargs`: These arguments are given to the `Tracker` class
         """
         super(Canvas, self).__init__(stereo_cam, **kwargs)
@@ -46,6 +49,7 @@ class Canvas(Tracker):
         self._resolution = resolution
         self._brush_size = brush_size
         self._plots = plots
+        self._projects = projects
 
         # if only one threshold is provided uses it for both the hysteresis thresholds
         self._drawing_threshold = drawing_threshold if isinstance(drawing_threshold, tuple) \
@@ -64,6 +68,11 @@ class Canvas(Tracker):
             cv.resizeWindow(self._window_name, *self._size[::-1])
             cv.imshow(self._window_name, self._canvas)
 
+        self._projection_window_name = "canvas"
+        if self._projects:
+            cv.namedWindow(self._projection_window_name, cv.WINDOW_NORMAL)
+            # cv.resizeWindow(self._projection_window_name, *self._size[::-1])
+
     @property
     def size_meters(self) -> tuple[float, float]:
         """Returns the canvas' size in meters"""
@@ -73,6 +82,20 @@ class Canvas(Tracker):
     @cached_property
     def _t_inv(self) -> np.ndarray:
         return np.linalg.inv(self._t)
+
+    @cached_property
+    def p1(self) -> np.ndarray:
+        return self._p(self._stereo_cam.cam1.m)
+
+    @cached_property
+    def p2(self) -> np.ndarray:
+        return self._p(self._stereo_cam.cam2.m)
+
+    def _p(self, m):
+        m = m @ self._t
+        p = np.delete(m, 2, 1)
+        p = p @ sp.linalg.block_diag(np.eye(2) / self._resolution, 1)
+        return p
 
     @property
     def tip(self) -> np.ndarray:
@@ -139,6 +162,12 @@ class Canvas(Tracker):
 
         if self._plots:
             cv.imshow(self._window_name, self._canvas)
+
+        if self._projects:
+            img1 = self._stereo_cam.cam1.retrieve(clone=True)
+            a = cv.warpPerspective(self._canvas, self.p1, img1.shape[1::-1], flags=cv.INTER_NEAREST)
+            img1[a == 1.] = (0, 0, 0)
+            cv.imshow(self._projection_window_name, img1)
 
         return True
 
