@@ -48,15 +48,15 @@ class StereoCamera:
     def is_calibrated(self) -> bool:
         return self._cam1.is_calibrated and self._cam2.is_calibrated
 
-    def calibrate_geometry(self, chessboard: Chessboard = Chessboard(), grab: bool = True) -> bool:
+    def calibrate_extrinsics(self, chessboard: Chessboard = Chessboard(), grab: bool = True) -> bool:
         """
         calibrates the geometrical parameters R, T of the cameras
         """
         if grab:
             self.grab()
 
-        ret1 = self._cam1.calibrate_geometry(chessboard, grab=False)
-        ret2 = self._cam2.calibrate_geometry(chessboard, grab=False)
+        ret1 = self._cam1.calibrate_extrinsics(chessboard, grab=False)
+        ret2 = self._cam2.calibrate_extrinsics(chessboard, grab=False)
 
         return ret1 and ret2
 

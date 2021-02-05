@@ -97,7 +97,6 @@ class Camera(cv.VideoCapture):
 
     def calibrate(self, images: np.ndarray, chessboard: Chessboard) -> bool:
         img_size = images.shape[1:3]
-        criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
         images_points = []
 
@@ -112,6 +111,7 @@ class Camera(cv.VideoCapture):
             if not ret:
                 continue
 
+            criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
             cv.cornerSubPix(img, corners, (11, 11), (-1, -1), criteria)
 
             images_points.append(corners)
@@ -128,7 +128,7 @@ class Camera(cv.VideoCapture):
 
         return True
 
-    def calibrate_geometry(self, chessboard: Chessboard, grab: bool = True, debug_buffer: np.array = None) -> bool:
+    def calibrate_extrinsics(self, chessboard: Chessboard, grab: bool = True, debug_buffer: np.array = None) -> bool:
         if grab:
             self.grab()
 
@@ -137,6 +137,9 @@ class Camera(cv.VideoCapture):
 
         if not ret:
             return False
+
+        criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+        cv.cornerSubPix(img, corners, (11, 11), (-1, -1), criteria)
 
         if debug_buffer is not None:
             debug_buffer.resize(img.shape, refcheck=False)
