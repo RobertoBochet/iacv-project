@@ -69,7 +69,7 @@ class Canvas(Tracker):
             cv.imshow(self._window_name, self._canvas)
 
         self._projection_window_name = "canvas_proj"
-        if self._projects:
+        if self._project:
             cv.namedWindow(self._projection_window_name, cv.WINDOW_NORMAL)
             cv.resizeWindow(self._projection_window_name, 1280, 720)
 
