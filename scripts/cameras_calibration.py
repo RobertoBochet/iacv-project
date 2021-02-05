@@ -7,20 +7,20 @@ import cv2 as cv
 from paintar.camera import Camera
 from paintar.utilities import Chessboard
 
-PATH_IMAGES = Path("./images/chessboard")
-PATH_DATA = Path("./data")
+PATH_IMAGES = Path("./data/chessboard")
+PATH_PARAMETERS = Path("./data/parameters")
 
 PATH_IMAGES_CAMERA_1 = PATH_IMAGES / "camera1"
 PATH_IMAGES_CAMERA_2 = PATH_IMAGES / "camera2"
 
-PATH_DATA_CAMERA_1 = PATH_DATA / "camera1"
-PATH_DATA_CAMERA_2 = PATH_DATA / "camera2"
+PATH_PARAMETERS_CAMERA_1 = PATH_PARAMETERS / "camera1"
+PATH_PARAMETERS_CAMERA_2 = PATH_PARAMETERS / "camera2"
 
-PATH_INTRINSICS_CAMERA_1 = PATH_DATA_CAMERA_1 / "intrinsics.txt"
-PATH_INTRINSICS_CAMERA_2 = PATH_DATA_CAMERA_2 / "intrinsics.txt"
+PATH_INTRINSICS_CAMERA_1 = PATH_PARAMETERS_CAMERA_1 / "intrinsics.txt"
+PATH_INTRINSICS_CAMERA_2 = PATH_PARAMETERS_CAMERA_2 / "intrinsics.txt"
 
-PATH_DISTORTION_CAMERA_1 = PATH_DATA_CAMERA_1 / "distortion.txt"
-PATH_DISTORTION_CAMERA_2 = PATH_DATA_CAMERA_2 / "distortion.txt"
+PATH_DISTORTION_CAMERA_1 = PATH_PARAMETERS_CAMERA_1 / "distortion.txt"
+PATH_DISTORTION_CAMERA_2 = PATH_PARAMETERS_CAMERA_2 / "distortion.txt"
 
 CHESSBOARD_SIZE = (9, 6)
 CHESSBOARD_SQUARE_SIZE = 0.0245
