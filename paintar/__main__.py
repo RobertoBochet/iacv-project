@@ -53,8 +53,8 @@ T_CANVAS = np.block([
 if __name__ == "__main__":
     chessboard = ut.Chessboard(CHESSBOARD_SIZE, CHESSBOARD_SQUARE_SIZE)
 
-    cam1 = Camera(PATH_VIDEO_1.as_posix(), K1, DIST1, R1, T1)
-    cam2 = Camera(PATH_VIDEO_2.as_posix(), K2, DIST2, R2, T2)
+    cam1 = Camera(PATH_VIDEO_1.as_posix(), k=K1, dist=DIST1, r=R1, t=T1)
+    cam2 = Camera(PATH_VIDEO_2.as_posix(), k=K2, dist=DIST2, r=R2, t=T2)
 
     stereo_cam = StereoCamera(cam1, cam2)
 
@@ -88,11 +88,11 @@ if __name__ == "__main__":
                     t=T_CANVAS,
                     size=(400, 600),
                     resolution=2e3,
-                    drawing_threshold= (0.001, 0.002),
+                    drawing_threshold=(0.001, 0.002),
                     brush_size=2,
                     interpolate=True,
-                    plots=True,
-                    projects=True)
+                    plot=True,
+                    project=True)
 
     print(canvas.size_meters)
 
