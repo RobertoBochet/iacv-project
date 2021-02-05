@@ -4,7 +4,7 @@ from typing import Union
 from .._cv import cv
 import numpy as np
 
-from ..utilities import Chessboard, forge_isometry, forge_projective_matrix, crop_around
+from ..utilities import Chessboard, forge_isometry, forge_projective_matrix, crop_around, draw_axis
 
 
 class Camera(cv.VideoCapture):
@@ -128,28 +128,39 @@ class Camera(cv.VideoCapture):
 
         return True
 
-    def calibrate_extrinsics(self, chessboard: Chessboard, grab: bool = True, debug_buffer: np.array = None) -> bool:
-        if grab:
-            self.grab()
+    def calibrate_extrinsics(self, chessboard: Chessboard,
+                             image: np.ndarray = None,
+                             grab: bool = True,
+                             debug_buffer: np.array = None) -> bool:
 
-        _, img = self.retrieve()
-        ret, corners = cv.findChessboardCorners(img, chessboard.size, None)
+        if image is None:
+            if grab:
+                self.grab()
+
+            _, image = self.retrieve()
+
+        if np.ndim(image) == 3:
+            image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+
+        ret, corners = cv.findChessboardCorners(image, chessboard.size, None)
 
         if not ret:
             return False
 
         criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-        cv.cornerSubPix(img, corners, (11, 11), (-1, -1), criteria)
-
-        if debug_buffer is not None:
-            debug_buffer.resize(img.shape, refcheck=False)
-            np.copyto(debug_buffer, img, casting="no")
-            cv.drawChessboardCorners(debug_buffer, chessboard.size, corners, True)
+        cv.cornerSubPix(image, corners, (11, 11), (-1, -1), criteria)
 
         ret, r, t, _ = cv.solvePnPRansac(chessboard.get_points(), corners, self._k, None)
 
         self._r, _ = cv.Rodrigues(r)
         self._t = t.reshape(3)
+
+        if debug_buffer is not None and ret:
+            image = cv.cvtColor(image, cv.COLOR_GRAY2BGR)
+            debug_buffer.resize(image.shape, refcheck=False)
+            np.copyto(debug_buffer, image, casting="unsafe")
+            cv.drawChessboardCorners(debug_buffer, chessboard.size, corners, True)
+            draw_axis(debug_buffer, self.m)
 
         return ret
 

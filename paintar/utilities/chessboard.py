@@ -25,5 +25,5 @@ class Chessboard:
         """
 
         return np.array(
-            [(i, j, 0) for j in range(self._size[1]) for i in range(self._size[0])],
-            dtype=np.float32) * self._square_size
+            [(i * self._square_size, j * self._square_size, 0) for i in range(self._size[1]) for j in
+             range(self._size[0])], dtype=np.float32)
