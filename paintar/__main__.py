@@ -46,7 +46,7 @@ T_CANVAS = np.block([
             [-1, 0, 0],
             [0, 0, -1]
         ]).T,
-        np.array([[.15, .25, 0.0015]]).T
+        np.array([[.15, .25, 0.002]]).T
     ], [0, 0, 0, 1]
 ])
 
@@ -80,9 +80,19 @@ if __name__ == "__main__":
     #     if stereo_cam.calibrate_geometry(chessboard):
     #         break
 
-    canvas = Canvas(stereo_cam, size=(200, 300), t=T_CANVAS, resolution=1e3, drawing_threshold=(0.001, 0.003),
-                    brush_size=3, interpolate=True, plot=True, project=True, aruco_dict=ARUCO_DICT,
-                    aruco_pen_size=ARUCO_PEN_SIZE, aruco_pen_tip_offset=ARUCO_PEN_TIP_OFFSET, debug_image=True)
+    canvas = Canvas(stereo_cam,
+                    aruco_dict=ARUCO_DICT,
+                    aruco_pen_size=ARUCO_PEN_SIZE,
+                    aruco_pen_tip_offset=ARUCO_PEN_TIP_OFFSET,
+                    debug_image=True,
+                    t=T_CANVAS,
+                    size=(400, 600),
+                    resolution=2e3,
+                    drawing_threshold= (0.001, 0.002),
+                    brush_size=2,
+                    interpolate=True,
+                    plots=True,
+                    projects=True)
 
     print(canvas.size_meters)
 

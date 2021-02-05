@@ -68,10 +68,10 @@ class Canvas(Tracker):
             cv.resizeWindow(self._window_name, *self._size[::-1])
             cv.imshow(self._window_name, self._canvas)
 
-        self._projection_window_name = "canvas"
-        if self._project:
+        self._projection_window_name = "canvas_proj"
+        if self._projects:
             cv.namedWindow(self._projection_window_name, cv.WINDOW_NORMAL)
-            # cv.resizeWindow(self._projection_window_name, *self._size[::-1])
+            cv.resizeWindow(self._projection_window_name, 1280, 720)
 
     @property
     def size_meters(self) -> tuple[float, float]:
