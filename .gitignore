@@ -1,11 +1,4 @@
-simone/stereo_view_epipolar_test.py
-simone/shi_tomasi.py
-simone/detetct_pencil_marker.py
-simone/record_video.py
-simone/stereo_calibration.py
+/data
 
 .vscode
 __pycache__
-
-/video
-/images
