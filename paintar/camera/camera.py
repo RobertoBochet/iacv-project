@@ -1,3 +1,4 @@
+from functools import cached_property
 from typing import Union
 
 from .._cv import cv
@@ -7,11 +8,11 @@ from ..utilities import Chessboard, forge_isometry, forge_projective_matrix, cro
 
 
 class Camera(cv.VideoCapture):
-    def __init__(self, source: any,
+    def __init__(self, *args,
                  k: np.array = None, dist: np.array = None,
                  r: np.array = None, t: np.array = None,
-                 *args, **kwargs):
-        super().__init__(source, *args, **kwargs)
+                 **kwargs):
+        super().__init__(*args, **kwargs)
 
         self._frame_in_buffer = False
         self._frame_buffer = None
@@ -19,13 +20,6 @@ class Camera(cv.VideoCapture):
         self._dist = dist
         self._r = r
         self._t = t
-
-        map_x, map_y = cv.initUndistortRectifyMap(self._k, self._dist, np.eye(3), self._k, (1280,720), cv.CV_16SC2)
-        self._ur_map_x = map_x
-        self._ur_map_y = map_y
-
-        self._frame_size = np.array([int(self.get(cv.CAP_PROP_FRAME_HEIGHT)),
-                                     int(self.get(cv.CAP_PROP_FRAME_WIDTH))], dtype=int)
 
     @property
     def k(self) -> np.array:
@@ -74,18 +68,22 @@ class Camera(cv.VideoCapture):
     def is_calibrated(self) -> bool:
         return self._k is not None and self._t is not None and self._r is not None
 
-    @property
-    def frame_size(self) -> np.ndarray:
+    @cached_property
+    def frame_size(self) -> tuple[int, int]:
         """
         returns the frame size
         """
-        # TODO needs more test
-        return self._frame_size
+        return (int(self.get(cv.CAP_PROP_FRAME_HEIGHT)),
+                int(self.get(cv.CAP_PROP_FRAME_WIDTH)))
+
+    @cached_property
+    def undistort_rectify_map(self):
+        return cv.initUndistortRectifyMap(self._k, self._dist, np.eye(3), self._k, self.frame_size[::-1], cv.CV_16SC2)
 
     def retrieve(self, clone: bool = False, *args, **kwargs):
         if not self._frame_in_buffer:
             _, img = super(Camera, self).retrieve(*args, **kwargs)
-            self._frame_buffer = cv.remap(img, self._ur_map_x, self._ur_map_y, cv.INTER_LINEAR);
+            self._frame_buffer = cv.remap(img, *self.undistort_rectify_map, cv.INTER_LINEAR)
             self._frame_in_buffer = True
 
         if clone:
@@ -97,8 +95,38 @@ class Camera(cv.VideoCapture):
         self._frame_in_buffer = False
         return super(Camera, self).grab()
 
-    def calibrate(self):
-        raise NotImplemented
+    def calibrate(self, images: np.ndarray, chessboard: Chessboard) -> bool:
+        img_size = images.shape[1:3]
+        criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+
+        images_points = []
+
+        for i in range(len(images)):
+            img = images[i]
+
+            if np.ndim(img) == 3:
+                img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+
+            ret, corners = cv.findChessboardCorners(img, chessboard.size, None)
+
+            if not ret:
+                continue
+
+            cv.cornerSubPix(img, corners, (11, 11), (-1, -1), criteria)
+
+            images_points.append(corners)
+
+        chessboard_points = [chessboard.get_points() for _ in range(len(images_points))]
+
+        ret, k, dist, _, _ = cv.calibrateCamera(chessboard_points, images_points, img_size[::-1], None, None)
+
+        if not ret:
+            return False
+
+        self._k = k
+        self._dist = dist
+
+        return True
 
     def calibrate_geometry(self, chessboard: Chessboard, grab: bool = True, debug_buffer: np.array = None) -> bool:
         if grab:
