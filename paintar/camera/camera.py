@@ -80,6 +80,14 @@ class Camera(cv.VideoCapture):
     def undistort_rectify_map(self):
         return cv.initUndistortRectifyMap(self._k, self._dist, np.eye(3), self._k, self.frame_size[::-1], cv.CV_16SC2)
 
+    def retrieve_raw(self, clone: bool = False, *args, **kwargs):
+        _, img = super(Camera, self).retrieve(*args, **kwargs)
+
+        if clone:
+            return np.copy(self._frame_buffer)
+
+        return img
+
     def retrieve(self, clone: bool = False, *args, **kwargs):
         if not self._frame_in_buffer:
             _, img = super(Camera, self).retrieve(*args, **kwargs)
@@ -106,7 +114,7 @@ class Camera(cv.VideoCapture):
             if np.ndim(img) == 3:
                 img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
 
-            ret, corners = cv.findChessboardCorners(img, chessboard.size, None)
+            ret, corners = cv.findChessboardCorners(img, chessboard.size)
 
             if not ret:
                 continue
@@ -137,20 +145,20 @@ class Camera(cv.VideoCapture):
             if grab:
                 self.grab()
 
-            _, image = self.retrieve()
+            _, image = self.retrieve_raw()
 
         if np.ndim(image) == 3:
             image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
 
-        ret, corners = cv.findChessboardCorners(image, chessboard.size, None)
+        ret, corners = cv.findChessboardCorners(image, chessboard.size)
 
         if not ret:
             return False
 
         criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-        cv.cornerSubPix(image, corners, (11, 11), (-1, -1), criteria)
+        corners = cv.cornerSubPix(image, corners, (11, 11), (-1, -1), criteria)
 
-        ret, r, t, _ = cv.solvePnPRansac(chessboard.get_points(), corners, self._k, None)
+        ret, r, t, _ = cv.solvePnPRansac(chessboard.get_points(), corners, self._k, self._dist)
 
         self._r, _ = cv.Rodrigues(r)
         self._t = t.reshape(3)
