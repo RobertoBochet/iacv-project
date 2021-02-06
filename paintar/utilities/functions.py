@@ -131,3 +131,36 @@ def crop_around(img: np.ndarray,
         crop = np.copy(crop)
 
     return crop
+
+
+def normalize_points(points: np.ndarray, normalize_points: bool = True) -> tuple[np.ndarray, np.ndarray]:
+    """
+    isotropic normalizing a set of points, and returns also the transformation matrix
+    """
+    # normalizes points, last element must be 1
+    points = (points.T / points[:, -1]).T
+
+    s = points.var(axis=0)
+
+    # removes the last element that should be 0
+    assert s[-1] == 0, "after var the last element must be 1"
+    s = s[:-1]
+
+    s = s.mean() / np.sqrt(2)
+    r = np.eye(points.shape[1] - 1) / s
+
+    t = points.mean(axis=0)
+
+    # removes the last element that should be 1
+    assert t[-1] == 1., "after mean the last element must be 1"
+    t = t[:-1]
+
+    t = -t / s
+
+    h = forge_isometry(r, t)
+
+    if normalize_points:
+        for i in range(len(points)):
+            points[i] = h @ points[i]
+
+    return h, points

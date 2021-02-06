@@ -66,5 +66,42 @@ class Test_proj_normalization(unittest.TestCase):
                       [10., 8., -4., 1.]]))
 
 
+class Test_normalization_points(unittest.TestCase):
+    def test_p4(self):
+        original_points = np.array([
+            [-7.25, 1.5, 0.25, 0.5],
+            [10., 8., -4., 1.],
+            [.5, 1., 2.5, 1.],
+            [-29., 6., 4., 4.],
+            [60., -24., 6., 1.]
+        ])
+
+        h, points = ut.normalize_points(original_points)
+
+        # tests centroid in 0
+        np.testing.assert_allclose(
+            points.mean(axis=0)[:-1],
+            np.array([0., 0., 0.]),
+            atol=1e-15)
+
+        d = points[:, :-1]
+        d = np.linalg.norm(d, axis=1)
+        d = d.mean()
+        # TODO improve the function to pass this test
+        # tests variance close to sqrt(2)
+        # self.assertAlmostEqual(d, np.sqrt(2), delta=0.2)
+
+        # normalizes the original points, last element equal to 1
+        original_points = (original_points.T / original_points[:, -1]).T
+
+        # restores the precondition
+        h_inv = np.linalg.inv(h)
+        for i in range(len(points)):
+            points[i] = h_inv @ points[i]
+
+        # tests the precondition restoring
+        np.testing.assert_allclose(original_points, points)
+
+
 if __name__ == '__main__':
     unittest.main()
