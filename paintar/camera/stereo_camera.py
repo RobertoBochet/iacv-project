@@ -6,7 +6,7 @@ from .._cv import cv
 import numpy as np
 
 from . import Camera
-from ..utilities import Chessboard, cart2proj, proj2cart
+from ..utilities import Chessboard, cart2proj, proj2cart, normalize_points
 
 
 class StereoCamera:
@@ -131,13 +131,16 @@ class StereoCamera:
 
         # uses Kabsch algorithm
         # finds centroid of the aruco's points
-        pc = np.sum(p, axis=0) / 4
-
-        # removes the centroid from the points
-        p = p - pc
+        pc = p.mean(axis=0)
 
         # defines the points in the aruco reference frame
-        pr = np.array([[-1, 1, 0], [1, 1, 0], [1, -1, 0], [-1, -1, 0]]) * aruco_size / 2
+        # pr = np.array([[-1, 1, 0], [1, 1, 0], [1, -1, 0], [-1, -1, 0]]) * aruco_size / 2
+        # for svd is a better choice that the average distance from the origin is sqrt(2)
+        pr = np.array([[-1, 1, 0], [1, 1, 0], [1, -1, 0], [-1, -1, 0]])
+
+        # normalizes the data to reduce the error given by svd and to remove centroid
+        _, p = normalize_points(cart2proj(p))
+        p = proj2cart(p)
 
         # computes H = P^T * Q
         h = np.transpose(pr) @ p

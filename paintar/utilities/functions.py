@@ -143,7 +143,7 @@ def normalize_points(points: np.ndarray, normalize_points: bool = True) -> tuple
     s = points.var(axis=0)
 
     # removes the last element that should be 0
-    assert s[-1] == 0, "after var the last element must be 1"
+    assert s[-1] == 0, "after var the last element must be 0"
     s = s[:-1]
 
     s = s.mean() / np.sqrt(2)
