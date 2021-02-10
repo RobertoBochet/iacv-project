@@ -125,12 +125,12 @@ def crop_around(img: np.ndarray,
     x_min = crop_limit[1, 0]
     x_max = crop_limit[1, 1]
 
-    crop = np.array([x_min, y_min]), img[y_min:y_max, x_min:x_max]
+    crop = img[y_min:y_max, x_min:x_max]
 
     if clone:
-        crop = np.copy(crop)
+        crop = crop.copy()
 
-    return crop
+    return np.array([x_min, y_min]), crop
 
 
 def normalize_points(points: np.ndarray, normalize_points: bool = True) -> tuple[np.ndarray, np.ndarray]:
