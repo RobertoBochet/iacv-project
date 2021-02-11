@@ -7,8 +7,10 @@ import cv2 as cv
 from paintar.camera import Camera
 from paintar.utilities import Chessboard
 
-PATH_IMAGES = Path("./data/chessboard")
-PATH_PARAMETERS = Path("./data/parameters")
+PATH_DATA = Path("./data")
+
+PATH_IMAGES = PATH_DATA / "chessboard"
+PATH_PARAMETERS = PATH_DATA / "demo1" / "parameters"
 
 PATH_IMAGES_CAMERA_1 = PATH_IMAGES / "camera1"
 PATH_IMAGES_CAMERA_2 = PATH_IMAGES / "camera2"
@@ -39,6 +41,9 @@ if __name__ == "__main__":
 
     cam1.calibrate(images_1, chessboard)
     cam2.calibrate(images_2, chessboard)
+
+    PATH_PARAMETERS_CAMERA_1.mkdir(parents=True, exist_ok=True)
+    PATH_PARAMETERS_CAMERA_2.mkdir(parents=True, exist_ok=True)
 
     np.savetxt(PATH_INTRINSICS_CAMERA_1, cam1.k)
     np.savetxt(PATH_INTRINSICS_CAMERA_2, cam2.k)

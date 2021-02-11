@@ -7,8 +7,10 @@ import cv2 as cv
 from paintar.camera import Camera
 from paintar.utilities import Chessboard
 
-PATH_PARAMETERS = Path("./data/parameters")
-PATH_IMAGES = Path("./data/geometric_calibration")
+PATH_DATA = Path("./data/demo1")
+
+PATH_PARAMETERS = PATH_DATA / "parameters"
+PATH_IMAGES = PATH_DATA / "geometric_calibration"
 
 PATH_PARAMETERS_CAMERA_1 = PATH_PARAMETERS / "camera1"
 PATH_PARAMETERS_CAMERA_2 = PATH_PARAMETERS / "camera2"
