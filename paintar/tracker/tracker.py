@@ -1,4 +1,5 @@
 import enum
+import logging
 import time
 from typing import Union
 
@@ -9,6 +10,9 @@ from .estimators import PositionSpeed3DEstimator
 from .. import utilities as ut
 from ..camera import StereoCamera
 from ..utilities import draw_axis
+
+_LOGGER = logging.getLogger(__package__)
+_LOGGER_FPS = logging.getLogger("{__package__}.fps")
 
 
 class Status(enum.Enum):
@@ -27,7 +31,8 @@ class Tracker:
                  aruco_pen_tip_offset: np.ndarray = np.array([0, 0, 0, 1]),
                  aruco_pen_id: int = 0,
                  aruco_pen_size: float = 0.01,
-                 debug_image: bool = False
+                 debug_image: bool = False,
+                 fps_window_size: int = 40
                  ):
         self._aruco_pen_size = aruco_pen_size
         self._aruco_pen_id = aruco_pen_id
@@ -50,15 +55,10 @@ class Tracker:
         self._aruco_tip_crop_size2 = 60
 
         self._fps_last_frame = 0.
-        self._fps_time = np.zeros((10,))
+        self._fps_time = np.zeros((fps_window_size,))
 
         self._db1 = None
         self._db2 = None
-
-        self._debug_window_name = "debug"
-        if self._debug_image:
-            cv.namedWindow(self._debug_window_name, cv.WINDOW_NORMAL)
-            cv.resizeWindow(self._debug_window_name, 1920, 720)
 
     @property
     def text_info(self) -> str:
@@ -99,11 +99,20 @@ class Tracker:
     def fps(self) -> float:
         return 1 / self._fps_time.mean()
 
-    def loop(self, grab: bool = True) -> bool:
-        if self._debug_image and cv.getWindowProperty(self._debug_window_name, cv.WND_PROP_VISIBLE) < 1:
-            return False
+    @property
+    def debug_image(self):
+        assert self._debug_image, "debug image must be enabled"
 
+        self._draw_debug_image()
+
+        img = np.concatenate((self._db1, self._db2), axis=1)
+        self._write_info(img)
+
+        return img
+
+    def loop(self, grab: bool = True) -> bool:
         self._update_fps()
+        _LOGGER_FPS.info(">>{:02.02f}fps".format(self.fps))
 
         if grab:
             self._stereo_cam.grab()
@@ -115,7 +124,6 @@ class Tracker:
             raise NotImplemented
 
         self._estimator_tip.predict()
-
 
         ###### almost NO_LOCK ######
         if Status.NO_LOCK.value <= self.status.value < Status.TIP_LOCKED.value:
@@ -133,25 +141,20 @@ class Tracker:
         if self.status.value >= Status.TIP_LOCKED.value:
             pass
 
-        if self._debug_image:
-            self._draw_debug_image()
-
-            img = np.concatenate((self._db1, self._db2), axis=1)
-            self._write_info(img)
-
-            cv.imshow(self._debug_window_name, img)
-
         return True
 
     def _looking_for_aruco(self):
+        # looks for the aruco in the image and tries to estimate its pose
         t = self._stereo_cam.triangulate_aruco(self._aruco_pen_id, self._aruco_pen_size, grab=False,
                                                aruco_dict=self._aruco_dict, aruco_param=self._aruco_param)
 
+        # if aruco pose was estimated successfully, updates the tip position
         if t is not None:
             p = t @ self._aruco_pen_tip_offset
             self._estimator_tip.update(ut.proj2cart(p))
 
             if self._debug_image:
+                # draws the aruco reference frame in the debug images
                 draw_axis(self._db1, self._stereo_cam.cam1.m @ t)
                 draw_axis(self._db2, self._stereo_cam.cam2.m @ t)
 
@@ -169,13 +172,14 @@ class Tracker:
         p1 = ut.proj2cart(self._stereo_cam.cam1.m @ p)
         p2 = ut.proj2cart(self._stereo_cam.cam2.m @ p)
 
-        img1, img2 = self._stereo_cam.retrieve(clone=True)
+        img1, img2 = self._stereo_cam.retrieve(clone=False)
 
         corner1, crop1 = ut.crop_around(img1, p1, self._aruco_tip_crop_size1, clone=True)
         corner2, crop2 = ut.crop_around(img2, p2, self._aruco_tip_crop_size2, clone=True)
 
-        rejected1 = np.empty(0)
-        rejected2 = np.empty(0)
+        # requires rejected only if debug is active
+        rejected1 = np.empty(0) if self._debug_image else None
+        rejected2 = np.empty(0) if self._debug_image else None
 
         tip1 = self._detect_tip_feature(crop1, rejected=rejected1)
         tip2 = self._detect_tip_feature(crop2, rejected=rejected2)
