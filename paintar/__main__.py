@@ -2,8 +2,8 @@
 import logging
 from pathlib import Path
 
-from _log import logger_setup
-from paintar.syncer import synchronize, estimate_delay
+from ._log import logger_setup
+from .syncer import synchronize, estimate_delay
 from ._cv import cv
 import numpy as np
 
