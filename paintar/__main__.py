@@ -10,8 +10,10 @@ import numpy as np
 from paintar.canvas import Canvas
 from .camera import Camera, StereoCamera
 
-PATH_VIDEO = Path("./data/video")
-PATH_PARAMETERS = Path("./data/parameters")
+PATH_DATA = Path("./data") / "demo1"
+
+PATH_VIDEO = PATH_DATA / "video"
+PATH_PARAMETERS = PATH_DATA / "parameters"
 
 PATH_VIDEO_1 = PATH_VIDEO / "video1.avi"
 PATH_VIDEO_2 = PATH_VIDEO / "video2.avi"
@@ -27,6 +29,7 @@ R1 = np.loadtxt(PATH_PARAMETERS_1 / "R.txt")
 R2 = np.loadtxt(PATH_PARAMETERS_2 / "R.txt")
 T1 = np.loadtxt(PATH_PARAMETERS_1 / "t.txt")
 T2 = np.loadtxt(PATH_PARAMETERS_2 / "t.txt")
+T_CANVAS = np.loadtxt(PATH_PARAMETERS / "t_canvas.txt")
 
 SKIP_FRAMES = 30 * 10 * 0
 TEST_FRAMES = 1500
@@ -39,17 +42,6 @@ ARUCO_DICT = cv.aruco.custom_dictionary(1, 3)
 SHOW_DEBUG_IMAGE = True
 SHOW_CANVAS = True
 SHOW_PROJECTION = True
-
-T_CANVAS = np.block([
-    [
-        np.array([
-            [0, -1, 0],
-            [-1, 0, 0],
-            [0, 0, -1]
-        ]).T,
-        np.array([[.15, .25, 0.002]]).T
-    ], [0, 0, 0, 1]
-])
 
 if __name__ == "__main__":
     logger_setup(logging.DEBUG)

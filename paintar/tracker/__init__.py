@@ -1,1 +1,1 @@
-from .tracker import Tracker, Status
+from .tracker import Tracker, State

@@ -15,8 +15,8 @@ _LOGGER = logging.getLogger(__package__)
 _LOGGER_FPS = logging.getLogger("{__package__}.fps")
 
 
-class Status(enum.Enum):
-    CAMERA_NO_CALIBRATE = 1  # cameras need calibration
+class State(enum.Enum):
+    NOT_CALIBRATE = 1  # cameras need calibration
     NO_LOCK = 2  # no lock on pen or aruco is acquired
     ARUCO_DETECTED = 3  # aruco is detected but with too low accuracy
     ARUCO_LOCKED = 4  # the aruco is locked in both cameras
@@ -42,20 +42,23 @@ class Tracker:
         self._aruco_param = aruco_param
         self._debug_image = debug_image
 
-        self._variance_threshold_aruco = 0.005
-        self._variance_threshold_feature = 0.003
-        self._variance_measure_aruco = 0.005
-        self._variance_measure_feature = 0.0005
+        self._variance_threshold_aruco = 5e-3
+        self._variance_threshold_feature_upper = 2e-3
+        self._variance_threshold_feature_lower = 5e-4
+        self._variance_measure_aruco = 5e-3
+        self._variance_measure_feature = 5e-4
 
         self._estimator_tip = PositionSpeed3DEstimator(r_p=self._variance_measure_aruco,
-                                                       q_p=0.0001,
-                                                       q_s=.00001)
+                                                       q_p=1e-4,
+                                                       q_s=1e-6)
 
         self._aruco_tip_crop_size1 = 60
         self._aruco_tip_crop_size2 = 60
 
         self._fps_last_frame = 0.
         self._fps_time = np.zeros((fps_window_size,))
+
+        self._old_state = None
 
         self._db1 = None
         self._db2 = None
@@ -64,32 +67,43 @@ class Tracker:
     def text_info(self) -> str:
         text = ""
 
-        if self.status.value >= Status.ARUCO_DETECTED.value:
+        if self.state.value >= State.ARUCO_DETECTED.value:
             text += "  tip Z: {:+.4f}\n".format(float(self._estimator_tip.pos[2]))
             text += "tip inc: {:.4f}\n".format(self._estimator_tip.var)
 
-        text += " status: {}\n".format(self.status.name)
+        text += " state: {}\n".format(self.state.name)
         text += "    fps: {:.1f}".format(self.fps)
         return text
 
     @property
-    def status(self) -> Status:
+    def state(self) -> State:
         """
         returns the tracker status
         """
-        if self._estimator_tip.var < self._variance_threshold_feature:
-            return Status.TIP_LOCKED
+        if self._estimator_tip.var < self._variance_threshold_feature_lower:
+            self._old_state = State.TIP_LOCKED
+            return State.TIP_LOCKED
+
+        if self._estimator_tip.var < self._variance_threshold_feature_upper and self._old_state is State.TIP_LOCKED:
+            return State.TIP_LOCKED
+
+        if self._estimator_tip.var > self._variance_threshold_feature_upper and self._old_state is State.TIP_LOCKED:
+            self._old_state = State.NO_LOCK
+            return State.NO_LOCK
 
         if self._estimator_tip.var < self._variance_threshold_aruco:
-            return Status.ARUCO_LOCKED
+            self._old_state = State.ARUCO_LOCKED
+            return State.ARUCO_LOCKED
 
         if not self._estimator_tip.is_reset:
-            return Status.ARUCO_DETECTED
+            self._old_state = State.ARUCO_DETECTED
+            return State.ARUCO_DETECTED
 
         if self._stereo_cam.is_calibrated:
-            return Status.NO_LOCK
+            self._old_state = State.NO_LOCK
+            return State.NO_LOCK
 
-        return Status.CAMERA_NO_CALIBRATE
+        return State.NOT_CALIBRATE
 
     @property
     def tip(self) -> np.ndarray:
@@ -110,7 +124,7 @@ class Tracker:
 
         return img
 
-    def loop(self, grab: bool = True) -> bool:
+    def loop(self, grab: bool = True) -> None:
         self._update_fps()
         _LOGGER_FPS.info(">>{:02.02f}fps".format(self.fps))
 
@@ -120,28 +134,24 @@ class Tracker:
         if self._debug_image:
             self._db1, self._db2 = self._stereo_cam.retrieve(clone=True)
 
-        if self.status == Status.CAMERA_NO_CALIBRATE:
+        if self.state == State.NOT_CALIBRATE:
             raise NotImplemented
 
         self._estimator_tip.predict()
 
-        ###### almost NO_LOCK ######
-        if Status.NO_LOCK.value <= self.status.value < Status.TIP_LOCKED.value:
+        if self.state is State.NO_LOCK:
+            self._estimator_tip.reset()
             self._looking_for_aruco()
 
-        ###### almost ARUCO_DETECTED ######
-        if self.status.value >= Status.ARUCO_DETECTED.value:
-            pass
+        elif self.state is State.ARUCO_DETECTED:
+            self._looking_for_aruco()
 
-        ###### almost ARUCO_LOCKED ######
-        if self.status.value >= Status.ARUCO_LOCKED.value:
+        elif self.state is State.ARUCO_LOCKED:
+            self._looking_for_aruco()
             self._looking_for_tip()
 
-        ###### almost TIP_LOCKED ######
-        if self.status.value >= Status.TIP_LOCKED.value:
-            pass
-
-        return True
+        elif self.state is State.TIP_LOCKED:
+            self._looking_for_tip()
 
     def _looking_for_aruco(self):
         # looks for the aruco in the image and tries to estimate its pose

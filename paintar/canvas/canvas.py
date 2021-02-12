@@ -6,7 +6,7 @@ import scipy as sp
 
 from .._cv import cv
 
-from ..tracker import Tracker, Status
+from ..tracker import Tracker, State
 from ..utilities import cart2proj, proj2cart, draw_axis
 from ..camera import StereoCamera
 
@@ -25,7 +25,6 @@ class Canvas(Tracker):
                  drawing_threshold: Union[float, tuple[float, float]] = 0.001,
                  brush_size: int = 0,
                  interpolate: bool = False,
-                 project: bool = False,
                  **kwargs):
         """
         :param stereo_cam: A `StereoCamera` instance
@@ -113,7 +112,7 @@ class Canvas(Tracker):
     @property
     def is_drawing(self) -> bool:
         """Returns if the pen is drawing"""
-        if self.status is not Status.TIP_LOCKED:
+        if self.state is not State.TIP_LOCKED:
             return False
 
         z = -self.tip[2] if self._reverse_z else self.tip[2]
