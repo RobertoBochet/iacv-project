@@ -3,14 +3,13 @@ import logging
 from pathlib import Path
 
 from ._log import logger_setup
-from .syncer import synchronize, estimate_delay
 from ._cv import cv
 import numpy as np
 
 from paintar.canvas import Canvas
 from .camera import Camera, StereoCamera
 
-PATH_DATA = Path("./data") / "demo1"
+PATH_DATA = Path("./data") / "demo2"
 
 PATH_VIDEO = PATH_DATA / "video"
 PATH_PARAMETERS = PATH_DATA / "parameters"
@@ -31,9 +30,6 @@ T1 = np.loadtxt(PATH_PARAMETERS_1 / "t.txt")
 T2 = np.loadtxt(PATH_PARAMETERS_2 / "t.txt")
 T_CANVAS = np.loadtxt(PATH_PARAMETERS / "t_canvas.txt")
 
-SKIP_FRAMES = 30 * 10 * 0
-TEST_FRAMES = 1500
-
 ARUCO_PEN_TIP_OFFSET = np.array([0, -0.139, 0, 1])
 ARUCO_PEN_ID = 0
 ARUCO_PEN_SIZE = 0.022
@@ -51,28 +47,6 @@ if __name__ == "__main__":
 
     stereo_cam = StereoCamera(cam1, cam2)
 
-    # to test de-sync
-    # for _ in range(40):
-    #    cam1.grab()
-    if False:
-        dt = estimate_delay(stereo_cam,
-                            aruco_dict=ARUCO_DICT,
-                            aruco_id=ARUCO_PEN_ID,
-                            max_delay=3.,
-                            plots=True)
-
-        cam1.release()
-        cam2.release()
-
-        cam1.open(PATH_VIDEO_1.as_posix())
-        cam2.open(PATH_VIDEO_2.as_posix())
-
-        synchronize(stereo_cam, dt)
-
-    # while True:
-    #     if stereo_cam.calibrate_geometry(chessboard):
-    #         break
-
     canvas = Canvas(stereo_cam,
                     aruco_dict=ARUCO_DICT,
                     aruco_pen_size=ARUCO_PEN_SIZE,
@@ -85,9 +59,6 @@ if __name__ == "__main__":
                     brush_size=2,
                     interpolate=True
                     )
-
-    for _ in range(SKIP_FRAMES):
-        stereo_cam.grab()
 
     if SHOW_DEBUG_IMAGE:
         cv.namedWindow("debug image", cv.WINDOW_NORMAL)
@@ -113,3 +84,5 @@ if __name__ == "__main__":
             cv.imshow("projection", canvas.projection)
 
         cv.waitKey(1)
+
+    cv.waitKey(0)
