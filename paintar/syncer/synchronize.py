@@ -1,11 +1,10 @@
 from typing import Union
 
 import numpy as np
-
-from ..camera import StereoCamera
-from .._cv import cv
 from matplotlib import pyplot as plt
 
+from .._cv import cv
+from ..camera import StereoCamera
 from ..utilities import cart2proj
 
 
@@ -14,6 +13,8 @@ def estimate_delay(stereo_camera: StereoCamera,
                    aruco_dict: cv.aruco_Dictionary = None,
                    aruco_param: cv.aruco_DetectorParameters = cv.aruco.DetectorParameters_create(),
                    max_delay: float = 10.,
+                   number_frames: int = 3,
+                   delta_frames: int = 10,
                    returns_fps: bool = True,
                    plots: bool = False) -> Union[float, int]:
     """
@@ -22,51 +23,71 @@ def estimate_delay(stereo_camera: StereoCamera,
     WARNING this method is destructive (reads several frames and discards them),
     after the use the delay will not corrected and it might be increased
     """
-
     fps = stereo_camera.cam1.get(cv.CAP_PROP_FPS)
 
     assert fps == stereo_camera.cam2.get(cv.CAP_PROP_FPS), "video must have the same frame rate"
 
+    frames_span = np.array(range(0, number_frames * delta_frames, delta_frames))
+
     max_offset = int(max_delay * fps)
 
-    t = np.array(range(-max_offset, max_offset + 1), dtype=int)
-    cost = np.full((2 * max_offset + 1,), np.inf, dtype=float)
-
-    for _ in range(max_offset):
-        stereo_camera.cam1.grab()
+    t1 = max_offset
 
     # finds the aruco in the image of the first camera
     while True:
-        p1 = stereo_camera.cam1.find_aruco(aruco_id=aruco_id,
-                                           aruco_dict=aruco_dict,
-                                           aruco_param=aruco_param,
-                                           grab=False)
+        p1 = []
+        for d in frames_span:
+            stereo_camera.cam1.set(cv.CAP_PROP_POS_FRAMES, t1 + d)
 
-        # if the aruco is found stops the research
-        if p1 is not None:
+            pa = stereo_camera.cam1.find_aruco(aruco_id=aruco_id,
+                                               aruco_dict=aruco_dict,
+                                               aruco_param=aruco_param,
+                                               grab=True)
+
+            if pa is None:
+                break
+
+            p1.append(pa)
+
+        if len(p1) == len(frames_span):
             break
 
-        stereo_camera.grab()
+        t1 += 1
 
-    for i in range(2 * max_offset + 1):
-        stereo_camera.cam2.grab()
+    p1 = np.vstack(p1)
+    p1 = cart2proj(p1)
 
-        # finds the aruco in the image of the second camera
-        p2 = stereo_camera.cam2.find_aruco(aruco_id=aruco_id,
-                                           aruco_dict=aruco_dict,
-                                           aruco_param=aruco_param,
-                                           grab=False)
+    t = np.array(range(-max_offset, max_offset + 1), dtype=int)
+    cost = np.full(t.shape, np.inf, dtype=float)
 
-        # if no aruco is detected skips the frame
-        if p2 is None:
+    # finds the aruco in the image of the first camera
+    for dt in t:
+        p2 = []
+        for d in frames_span:
+            stereo_camera.cam2.set(cv.CAP_PROP_POS_FRAMES, t1 + dt + d)
+
+            pa = stereo_camera.cam2.find_aruco(aruco_id=aruco_id,
+                                               aruco_dict=aruco_dict,
+                                               aruco_param=aruco_param,
+                                               grab=True)
+
+            if pa is None:
+                break
+
+            p2.append(pa)
+
+        if len(p2) != len(frames_span):
             continue
 
-        c = 0
+        p2 = np.vstack(p2)
+        p2 = cart2proj(p2)
 
-        for j in range(4):
-            c = (cart2proj(p2[j]) @ stereo_camera.f @ cart2proj(p1[j]).reshape(3, 1)) ** 2
+        c = map(lambda x: x[1] @ stereo_camera.f @ x[0].reshape(3, 1), zip(p1, p2))
+        c = map(lambda x: float(x), c)
+        c = map(lambda x: abs(x), c)
+        c = sum(c)
 
-        cost[i] = c ** .5
+        cost[dt - t[0]] = c
 
     dt = t[np.argmin(cost)]
 
@@ -86,7 +107,10 @@ def synchronize(stereo_camera: StereoCamera, delay: int):
     """
     given a delay restores the sync between the two cameras
     """
-    cam = stereo_camera.cam1 if delay < 0 else stereo_camera.cam2
+    if delay > 0:
+        stereo_camera.cam1.set(cv.CAP_PROP_POS_FRAMES, 0)
+        stereo_camera.cam2.set(cv.CAP_PROP_POS_FRAMES, delay)
 
-    for _ in range(abs(delay)):
-        cam.grab()
+    else:
+        stereo_camera.cam1.set(cv.CAP_PROP_POS_FRAMES, -delay)
+        stereo_camera.cam2.set(cv.CAP_PROP_POS_FRAMES, 0)
