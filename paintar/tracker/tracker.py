@@ -4,18 +4,20 @@ import time
 from typing import Union
 
 import numpy as np
-from .._cv import cv
 
 from .estimators import PositionSpeed3DEstimator
 from .. import utilities as ut
+from .._cv import cv
 from ..camera import StereoCamera
 from ..utilities import draw_axis
 
-_LOGGER = logging.getLogger(__package__)
 _LOGGER_FPS = logging.getLogger("{__package__}.fps")
 
 
 class State(enum.Enum):
+    """
+    represents the possible state of the `Tracker`
+    """
     NOT_CALIBRATE = 1  # cameras need calibration
     NO_LOCK = 2  # no lock on pen or aruco is acquired
     ARUCO_DETECTED = 3  # aruco is detected but with too low accuracy
@@ -24,6 +26,9 @@ class State(enum.Enum):
 
 
 class Tracker:
+    """
+    implements the FSM to track the pen in the 3D space exploiting a stereo vision camera
+    """
 
     def __init__(self, stereo_cam: StereoCamera,
                  aruco_dict: cv.aruco_Dictionary = None,
@@ -34,6 +39,17 @@ class Tracker:
                  debug_image: bool = False,
                  fps_window_size: int = 40
                  ):
+        """
+        :param stereo_cam: an instance of a stereo camera
+        :param aruco_dict: the dictionary containing the aruco on the pen
+        :param aruco_param: the parameters for the aruco library
+        :param aruco_pen_tip_offset: the position of the tip in the aruco reference frame
+        :param aruco_pen_id: the id of the aruco marker
+        :param aruco_pen_size: the real size of the aruco marker in meter
+        :param debug_image: if `True` the `debug_image` will be available
+        :param fps_window_size: the size of the window to compute the fps
+        """
+
         self._aruco_pen_size = aruco_pen_size
         self._aruco_pen_id = aruco_pen_id
         self._aruco_pen_tip_offset = aruco_pen_tip_offset
@@ -48,13 +64,16 @@ class Tracker:
         self._variance_measure_aruco = 5e-3
         self._variance_measure_feature = 5e-4
 
+        # creates the tip estimator
         self._estimator_tip = PositionSpeed3DEstimator(r_p=self._variance_measure_aruco,
                                                        q_p=1e-4,
                                                        q_s=1e-6)
 
+        # defines the size of the crops in pixels
         self._aruco_tip_crop_size1 = 60
         self._aruco_tip_crop_size2 = 60
 
+        # some support variable to compute fps
         self._fps_last_frame = 0.
         self._fps_time = np.zeros((fps_window_size,))
 
@@ -65,6 +84,9 @@ class Tracker:
 
     @property
     def text_info(self) -> str:
+        """
+        a text description of the tracker's state
+        """
         text = ""
 
         if self.state.value >= State.ARUCO_DETECTED.value:
@@ -78,7 +100,7 @@ class Tracker:
     @property
     def state(self) -> State:
         """
-        returns the tracker status
+        the current tracker state
         """
         if self._estimator_tip.var < self._variance_threshold_feature_lower:
             self._old_state = State.TIP_LOCKED
@@ -107,24 +129,39 @@ class Tracker:
 
     @property
     def tip(self) -> np.ndarray:
+        """
+        the estimated tip position
+        """
         return self._estimator_tip.pos
 
     @property
     def fps(self) -> float:
+        """
+        current fps
+        """
         return 1 / self._fps_time.mean()
 
     @property
-    def debug_image(self):
+    def debug_image(self) -> np.ndarray:
+        """
+        the debug image, to use it the debug_image parameter of the class must be set to `True`
+        """
         assert self._debug_image, "debug image must be enabled"
 
         self._draw_debug_image()
 
+        # merges the two debug image from the cameras to one
         img = np.concatenate((self._db1, self._db2), axis=1)
         self._write_info(img)
 
         return img
 
     def loop(self, grab: bool = True) -> None:
+        """
+        processes a single frame from the two cameras
+
+        :param grab: if `True` a grab procedure is performed before retrieving the images
+        """
         self._update_fps()
         _LOGGER_FPS.info(">>{:02.02f}fps".format(self.fps))
 
@@ -134,11 +171,14 @@ class Tracker:
         if self._debug_image:
             self._db1, self._db2 = self._stereo_cam.retrieve(clone=True)
 
+        # notifies that a calibration procedure must be done before use this class
         if self.state == State.NOT_CALIBRATE:
             raise NotImplemented
 
+        # performs  one step evolution of the Kalman filter
         self._estimator_tip.predict()
 
+        # implements the SFM
         if self.state is State.NO_LOCK:
             self._estimator_tip.reset()
             self._looking_for_aruco()
@@ -177,6 +217,10 @@ class Tracker:
                               (0, 255, 0), markerType=cv.MARKER_CROSS, markerSize=20)
 
     def _looking_for_tip(self):
+        """
+        implements the procedure to find and triangulate the tip via features
+        """
+        # retrieves the tip position estimation and projects it in the two images to get two crops near the tip
         p = ut.cart2proj(self._estimator_tip.pos)
 
         p1 = ut.proj2cart(self._stereo_cam.cam1.m @ p)
@@ -191,6 +235,7 @@ class Tracker:
         rejected1 = np.empty(0) if self._debug_image else None
         rejected2 = np.empty(0) if self._debug_image else None
 
+        # tries to find the tip in the two crops
         tip1 = self._detect_tip_feature(crop1, rejected=rejected1)
         tip2 = self._detect_tip_feature(crop2, rejected=rejected2)
 
@@ -199,6 +244,7 @@ class Tracker:
             tip = self._stereo_cam.triangulate_point(ut.cart2proj(tip1 + corner1), ut.cart2proj(tip2 + corner2))
             self._estimator_tip.update(ut.proj2cart(tip), R=self._variance_measure_feature)
 
+            # draws the features in the crops if debug image is required
             if self._debug_image:
                 cv.drawMarker(crop1, tuple(tip1.astype(np.uint)),
                               (0, 0, 255), markerType=cv.MARKER_CROSS, markerSize=200)
@@ -213,15 +259,21 @@ class Tracker:
                         cv.drawMarker(crop2, tuple(rejected2[i].astype(np.uint)),
                                       (0, 255, 0), markerType=cv.MARKER_CROSS, markerSize=20)
 
+        # pastes the two crops in the debug images
         if self._debug_image:
             crop_res = (250, 250)
             self._db1[0:crop_res[0], 0:crop_res[1]] = cv.resize(crop1, crop_res, cv.INTER_NEAREST)
             self._db2[0:crop_res[0], 0:crop_res[1]] = cv.resize(crop2, crop_res, cv.INTER_NEAREST)
 
     def _detect_tip_feature(self, tip_area: np.ndarray, rejected: np.ndarray = None) -> Union[np.ndarray, None]:
+        """
+        tries to find the tip via features from a crop, and returns it position in the crop
 
+        :param tip_area: is the crop where should be the tip
+        :param rejected: if is not `None` is used to returns the rejected features
+        """
         hsv = cv.cvtColor(tip_area, cv.COLOR_BGR2HSV)
-        mask = cv.inRange(hsv, np.array([0, 0, 0]), np.array([180, 255, 40]))
+        mask = cv.inRange(hsv, np.array([0, 0, 0]), np.array([180, 255, 50]))
         mask = cv.bitwise_not(mask)
         mask_rgb = cv.cvtColor(mask, cv.COLOR_GRAY2RGB)  # needed by bitwise_or
         cv.bitwise_or(mask_rgb, tip_area, tip_area)  # replace everything brighter than V = 40 with pure white
@@ -236,8 +288,8 @@ class Tracker:
 
         features = np.squeeze(features, axis=1)
 
-        circle_kernel = cv.getStructuringElement(cv.MORPH_RECT, (11, 11))  # basically a 7x7 matrix of 1s
-        filtered_area = cv.filter2D(mask, cv.CV_16S, circle_kernel, anchor=(5, 0))
+        kernel = cv.getStructuringElement(cv.MORPH_RECT, (11, 11))  # basically a 7x7 matrix of 1s
+        filtered_area = cv.filter2D(mask, cv.CV_16S, kernel, anchor=(5, 0))
         # brightest -> less dark around the candidate -> high likelihood of being the tip
         # normalize the results from 0 to 255
         filtered_area = cv.normalize(filtered_area, filtered_area, alpha=0, beta=255, norm_type=cv.NORM_MINMAX,
@@ -254,13 +306,15 @@ class Tracker:
             rejected.resize(rej_feat.shape, refcheck=False)
             np.copyto(rejected, rej_feat, casting="unsafe")
 
-        # filtered_area = cv.cvtColor(filtered_area, cv.COLOR_GRAY2BGR)
-
+        # adds a static offset on the tip position
         tip = features[0] + np.array([0, 2])
 
         return tip
 
     def _draw_debug_image(self):
+        """
+        draws some stuff in the debug image
+        """
         # draws the world frame
         draw_axis(self._db1, self._stereo_cam.cam1.m)
         draw_axis(self._db2, self._stereo_cam.cam2.m)
@@ -278,6 +332,9 @@ class Tracker:
         cv.drawMarker(self._db2, p2, (0, 0, 255), markerType=cv.MARKER_CROSS, markerSize=20)
 
     def _write_info(self, img: np.ndarray):
+        """
+        writes the text info in the bottom-left corner of the debug image
+        """
         text = self.text_info.splitlines()
         dp = np.array([0, 40])
         pos = np.array([0, img.shape[0]]) + np.array([5, -5]) - dp * len(text)
@@ -287,6 +344,9 @@ class Tracker:
                        cv.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
 
     def _update_fps(self):
+        """
+        updates the fps value at each loop
+        """
         self._fps_time = np.roll(self._fps_time, 1)
         t = time.time()
         self._fps_time[0] = t - self._fps_last_frame
