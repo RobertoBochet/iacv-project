@@ -11,6 +11,7 @@ class Camera(cv.VideoCapture):
     """
     implements a camera based on cv.VideoCapture
     """
+
     def __init__(self, *args,
                  k: np.array = None, dist: np.array = None,
                  r: np.array = None, t: np.array = None,
@@ -250,7 +251,11 @@ class Camera(cv.VideoCapture):
 
         return np.squeeze(aruco[0][1])
 
-    def find_aruco_pose(self, aruco_id: int, marker_size: float, debug_buffer: np.array = None, **kwargs) -> np.ndarray:
+    def find_aruco_pose(self,
+                        aruco_id: int,
+                        marker_size: float,
+                        debug_buffer: np.array = None,
+                        **kwargs) -> Union[np.ndarray, None]:
         """
         provides the geometrical transformation A_a^c (i.e. p^c = A_a^c p^a),
         the transformation of the aruco frame respect of camera frame

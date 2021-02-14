@@ -1,16 +1,23 @@
 from functools import cached_property
 from typing import Union
 
-from .._cv import cv
-
 import numpy as np
 
 from . import Camera
+from .._cv import cv
 from ..utilities import Chessboard, cart2proj, proj2cart, normalize_points
 
 
 class StereoCamera:
+    """
+    implements the code to handle a stereo camera
+    """
+
     def __init__(self, cam1: Camera, cam2: Camera):
+        """
+        :param cam1: the first camera
+        :param cam2: the second camera
+        """
         self._cam1 = cam1
         self._cam2 = cam2
 
