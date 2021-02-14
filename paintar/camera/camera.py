@@ -1,17 +1,26 @@
 from functools import cached_property
 from typing import Union
 
-from .._cv import cv
 import numpy as np
 
-from ..utilities import Chessboard, forge_isometry, forge_projective_matrix, crop_around, draw_axis
+from .._cv import cv
+from ..utilities import Chessboard, forge_isometry, forge_projective_matrix, draw_axis
 
 
 class Camera(cv.VideoCapture):
+    """
+    implements a camera based on cv.VideoCapture
+    """
     def __init__(self, *args,
                  k: np.array = None, dist: np.array = None,
                  r: np.array = None, t: np.array = None,
                  **kwargs):
+        """
+        :param k: the intrinsic parameter of the camera
+        :param dist: the distortion parameters
+        :param r: the rotation from the world reference frame
+        :param t: the position of the camera center in the world reference frame
+        """
         super().__init__(*args, **kwargs)
 
         self._frame_in_buffer = False
@@ -78,9 +87,18 @@ class Camera(cv.VideoCapture):
 
     @cached_property
     def undistort_rectify_map(self):
+        """
+        the map to remove the image distortion
+        """
         return cv.initUndistortRectifyMap(self._k, self._dist, np.eye(3), self._k, self.frame_size[::-1], cv.CV_16SC2)
 
     def retrieve_raw(self, clone: bool = False, *args, **kwargs):
+        """
+        retrieves a frame
+
+        :param clone: if `True` returns a clone of the frame
+        :return: the frame
+        """
         _, img = super(Camera, self).retrieve(*args, **kwargs)
 
         if clone:
@@ -88,7 +106,13 @@ class Camera(cv.VideoCapture):
 
         return img
 
-    def retrieve(self, clone: bool = False, *args, **kwargs):
+    def retrieve(self, clone: bool = False, *args, **kwargs) -> np.ndarray:
+        """
+        retrieves an undistorted frame
+
+        :param clone: if `True` returns a clone of the frame
+        :return: the undistorted frame
+        """
         if not self._frame_in_buffer:
             _, img = super(Camera, self).retrieve(*args, **kwargs)
             self._frame_buffer = cv.remap(img, *self.undistort_rectify_map, cv.INTER_LINEAR)
@@ -104,6 +128,13 @@ class Camera(cv.VideoCapture):
         return super(Camera, self).grab()
 
     def calibrate(self, images: np.ndarray, chessboard: Chessboard) -> bool:
+        """
+        given some images with the chessboard, performs the calibration of intrinsics parameters
+
+        :param images: an array containing the images used to calibrate the camera
+        :param chessboard: the chessboard used to calibrate
+        :return: if the calibration is done successfully
+        """
         img_size = images.shape[1:3]
 
         images_points = []
@@ -136,11 +167,20 @@ class Camera(cv.VideoCapture):
 
         return True
 
-    def calibrate_extrinsics(self, chessboard: Chessboard,
+    def calibrate_extrinsics(self,
+                             chessboard: Chessboard,
                              image: np.ndarray = None,
                              grab: bool = True,
                              debug_buffer: np.array = None) -> bool:
+        """
+        performs the calibration of the extrinsics parameters exploiting a chessboard in a image
 
+        :param chessboard: a chessboard configuration
+        :param image: an image with the chessboard to perform the calibration, if `None` an image will be retrieved from the camera
+        :param grab: if `True` a grab procedure will be performed
+        :param debug_buffer: if provided will be filled with the image with the detected chessboard
+        :return: if the calibration is done successfully
+        """
         if image is None:
             if grab:
                 self.grab()
@@ -155,6 +195,7 @@ class Camera(cv.VideoCapture):
         if not ret:
             return False
 
+        # enhances the precision in the chessboard corners detection
         criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
         corners = cv.cornerSubPix(image, corners, (11, 11), (-1, -1), criteria)
 
@@ -175,6 +216,15 @@ class Camera(cv.VideoCapture):
     def find_aruco(self, aruco_id: int, grab: bool = True,
                    aruco_dict: cv.aruco_Dictionary = None,
                    aruco_param: cv.aruco_DetectorParameters = None) -> Union[None, np.ndarray]:
+        """
+        searches the required aruco in the image and returns its corners
+
+        :param aruco_id: the id of the searched aruco
+        :param grab: if `True` a grab operation will be performed
+        :param aruco_dict: the dictionary containing the searched aruco
+        :param aruco_param: the aruco library parameters
+        :return: if it is found the array with the 4 corners else `None`
+        """
         if grab:
             self.grab()
 
@@ -200,10 +250,15 @@ class Camera(cv.VideoCapture):
 
         return np.squeeze(aruco[0][1])
 
-    def find_aruco_pose(self, aruco_id: int, marker_size: float, debug_buffer: np.array = None, **kwargs):
+    def find_aruco_pose(self, aruco_id: int, marker_size: float, debug_buffer: np.array = None, **kwargs) -> np.ndarray:
         """
         provides the geometrical transformation A_a^c (i.e. p^c = A_a^c p^a),
         the transformation of the aruco frame respect of camera frame
+
+        :param aruco_id: the id of the searched aruco
+        :param marker_size: the real size of the aruco marker in meter
+        :param debug_buffer: if provided (as np.ndarray) draws in it the image with the aruco reference frame
+        :return: the transformation from the world reference frame to the aruco one
         """
         aruco = self.find_aruco(aruco_id, **kwargs)
 
