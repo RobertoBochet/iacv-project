@@ -5,21 +5,20 @@ import numpy as np
 import scipy as sp
 
 from .._cv import cv
-
+from ..camera import StereoCamera
 from ..tracker import Tracker, State
 from ..utilities import cart2proj, proj2cart, draw_axis
-from ..camera import StereoCamera
-
-import logging
-
-_LOGGER = logging.getLogger(__package__)
 
 
 class Canvas(Tracker):
+    """
+    implements the canvas behaviour extends the `Tracker` class
+    """
+
     def __init__(self,
                  stereo_cam: StereoCamera,
                  size: tuple = (100, 100),
-                 t: np.ndarray = None,
+                 t_c: np.ndarray = None,
                  reverse_z: bool = True,
                  resolution: float = 1e3,
                  drawing_threshold: Union[float, tuple[float, float]] = 0.001,
@@ -29,7 +28,7 @@ class Canvas(Tracker):
         """
         :param stereo_cam: A `StereoCamera` instance
         :param size: The canvas' size in pixels
-        :param t: It is the isometric transformation between world reference frame and the canvas one,
+        :param t_c: It is the isometric transformation between world reference frame and the canvas one,
             if `None` the two references frames coincide
         :param reverse_z: If `True` the z values will be reversed for the drawing status computation,
             it is useful because the `cv2` images reference frame has the axis z entering in the image
@@ -44,7 +43,7 @@ class Canvas(Tracker):
 
         self._interpolate = interpolate
         self._size = size
-        self._t = t
+        self._t_c = t_c
         self._reverse_z = reverse_z
         self._resolution = resolution
         self._brush_size = brush_size
@@ -57,39 +56,57 @@ class Canvas(Tracker):
 
         self._old_pos = None
 
+        # prepares the canvas
         self._canvas = None
         self.clear()
 
     @property
     def size_meters(self) -> tuple[float, float]:
-        """Returns the canvas' size in meters"""
+        """
+        the canvas' size in meters
+        """
         return (self._size[0] / self._resolution,
                 self._size[1] / self._resolution)
 
     @cached_property
-    def _t_inv(self) -> np.ndarray:
-        return np.linalg.inv(self._t)
+    def _t_c_inv(self) -> np.ndarray:
+        return np.linalg.inv(self._t_c)
 
     @cached_property
     def p1(self) -> np.ndarray:
+        """
+        the projective matrix from canvas reference frame of the camera1
+        """
         return self._p(self._stereo_cam.cam1.m)
 
     @cached_property
     def p2(self) -> np.ndarray:
+        """
+        the projective matrix from canvas reference frame of the camera1
+        """
         return self._p(self._stereo_cam.cam2.m)
 
-    def _p(self, m):
-        m = m @ self._t
+    def _p(self, m: np.ndarray) -> np.ndarray:
+        """
+        given a projective matrix from world reference frame, returns the projective matrix from canvas reference frame
+        """
+        m = m @ self._t_c
         p = np.delete(m, 2, 1)
         p = p @ sp.linalg.block_diag(np.eye(2) / self._resolution, 1)
         return p
 
     @property
     def canvas(self) -> np.ndarray:
+        """
+        the canvas image
+        """
         return self._canvas
 
     @property
     def projection(self) -> np.ndarray:
+        """
+        the projection of the canvas in the camera 1 image
+        """
         img1 = self._stereo_cam.cam1.retrieve(clone=True)
         a = cv.warpPerspective(self._canvas, self.p1, img1.shape[1::-1], flags=cv.INTER_NEAREST)
         img1[a == 1.] = (0, 0, 0)
@@ -98,20 +115,24 @@ class Canvas(Tracker):
 
     @property
     def tip(self) -> np.ndarray:
-        """Returns the tip position in the canvas frame"""
+        """
+        the tip position in the canvas frame
+        """
         tip = super(Canvas, self).tip
 
         # if no transformation was provided returns the `Tracker` estimation
-        if self._t is None:
+        if self._t_c is None:
             return tip
 
         # moves the tip in the canvas reference frame
-        tip_c = self._t_inv @ cart2proj(tip)
+        tip_c = self._t_c_inv @ cart2proj(tip)
         return proj2cart(tip_c)
 
     @property
     def is_drawing(self) -> bool:
-        """Returns if the pen is drawing"""
+        """
+        if the pen is drawing
+        """
         if self.state is not State.TIP_LOCKED:
             return False
 
@@ -126,13 +147,16 @@ class Canvas(Tracker):
         return self._is_drawing
 
     def clear(self) -> None:
-        """Clears the canvas"""
+        """
+        clears the canvas
+        """
         self._canvas = np.zeros(self._size)
 
     def loop(self, grab: bool = True) -> None:
-        """Processes a single frame
+        """
+        processes a single frame
 
-        :param grab: If `True` a grab operation will be done
+        :param grab: if `True` a grab operation will be performed
         """
         super(Canvas, self).loop(grab)
 
@@ -145,6 +169,7 @@ class Canvas(Tracker):
             p_c = np.around(p_c)
             p_c = tuple(p_c.astype(int))
 
+            # if interpolation is required also the last tip position is used to draw
             if self._interpolate and self._old_pos is not None:
                 cv.line(self._canvas, self._old_pos, p_c, (1,), thickness=self._brush_size)
             else:
@@ -157,6 +182,6 @@ class Canvas(Tracker):
     def _draw_debug_image(self) -> None:
         super(Canvas, self)._draw_debug_image()
 
-        if self._t is not None:
-            draw_axis(self._db1, self._stereo_cam.cam1.m @ self._t, draw_z=False)
-            draw_axis(self._db2, self._stereo_cam.cam2.m @ self._t, draw_z=False)
+        if self._t_c is not None:
+            draw_axis(self._db1, self._stereo_cam.cam1.m @ self._t_c, draw_z=False)
+            draw_axis(self._db2, self._stereo_cam.cam2.m @ self._t_c, draw_z=False)
