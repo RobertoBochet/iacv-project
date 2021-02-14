@@ -85,6 +85,7 @@ def estimate_delay(stereo_camera: StereoCamera,
         c = map(lambda x: x[1] @ stereo_camera.f @ x[0].reshape(3, 1), zip(p1, p2))
         c = map(lambda x: float(x), c)
         c = map(lambda x: abs(x), c)
+        c = map(lambda x: x**.5, c)
         c = sum(c)
 
         cost[dt - t[0]] = c
