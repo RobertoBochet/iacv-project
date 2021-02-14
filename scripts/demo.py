@@ -2,12 +2,12 @@
 import logging
 from pathlib import Path
 
-from ._log import logger_setup
-from ._cv import cv
+from paintar._log import logger_setup
+import cv2 as cv
 import numpy as np
 
 from paintar.canvas import Canvas
-from .camera import Camera, StereoCamera
+from paintar.camera import Camera, StereoCamera
 
 PATH_DATA = Path("./data") / "demo2"
 
