@@ -59,7 +59,7 @@ class Tracker:
         self._debug_image = debug_image
 
         self._variance_threshold_aruco = 5e-3
-        self._variance_threshold_feature_upper = 2e-3
+        self._variance_threshold_feature_upper = 1e-3
         self._variance_threshold_feature_lower = 5e-4
         self._variance_measure_aruco = 5e-3
         self._variance_measure_feature = 5e-4
