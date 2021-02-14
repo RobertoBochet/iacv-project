@@ -52,10 +52,10 @@ if __name__ == "__main__":
                     aruco_pen_size=ARUCO_PEN_SIZE,
                     aruco_pen_tip_offset=ARUCO_PEN_TIP_OFFSET,
                     debug_image=SHOW_DEBUG_IMAGE,
-                    t=T_CANVAS,
+                    t_c=T_CANVAS,
                     size=(400, 600),
                     resolution=2e3,
-                    drawing_threshold=(0.001, 0.002),
+                    drawing_threshold=(0.001, 0.003),
                     brush_size=2,
                     interpolate=True
                     )

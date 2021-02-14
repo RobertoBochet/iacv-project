@@ -10,7 +10,7 @@ from paintar.utilities import Chessboard
 PATH_DATA = Path("./data")
 
 PATH_IMAGES = PATH_DATA / "chessboard"
-PATH_PARAMETERS = PATH_DATA / "demo1" / "parameters"
+PATH_PARAMETERS = PATH_DATA / "demo2" / "parameters"
 
 PATH_IMAGES_CAMERA_1 = PATH_IMAGES / "camera1"
 PATH_IMAGES_CAMERA_2 = PATH_IMAGES / "camera2"
