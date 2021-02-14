@@ -22,4 +22,4 @@ The repo includes some scripts to see the library in action
 
 - [retrieve_data.py](./scripts/retrieve_data.py)
 
-	It retrieves the data for the demos from internet and puts them in the right folder (`./data`).
+	It retrieves the data for the demos from dropbox and puts them in the right folder (`./data`).
